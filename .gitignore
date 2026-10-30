@@ -1,0 +1,16 @@
+# 项目内部数据（记忆、调试钩子等），不发布
+.workbuddy/
+
+# 无头浏览器临时目录
+.edge-tmp-*/
+.edge-probe-*/
+
+# 调试脚本
+_check.mjs
+_probe.mjs
+_shot.mjs
+*.log
+
+# 系统垃圾
+.DS_Store
+Thumbs.db

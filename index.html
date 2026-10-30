@@ -1,0 +1,3072 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>月光蛋糕 · 3D 拆解</title>
+<style>
+  :root{
+    --ink:#3a2a2c;
+    --ink-2:#7a6469;
+    --ink-3:#a58f94;
+    --line:rgba(180,140,145,.28);
+    --card:rgba(255,252,251,.72);
+    --pink:#e8a6b6;
+    --gold:#c9a227;
+    --r:16px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;margin:0}
+  body{
+    font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+    color:var(--ink);
+    background:
+      radial-gradient(120% 90% at 50% -10%, #fffdfc 0%, #faf0ee 36%, #f0dfe0 66%, #e0c9ce 100%);
+      overflow:hidden;
+  }
+  #stage{position:fixed;inset:0}
+  #c{display:block;width:100%;height:100%;touch-action:none;cursor:grab;position:relative;z-index:1}
+  #c.grabbing{cursor:grabbing}
+  #c.pointing{cursor:pointer}
+
+  /* ---------- 关灯后的夜空（垫在画布下面，画布本身是透明的） ---------- */
+  #nightSky{
+    position:fixed;inset:0;z-index:0;pointer-events:none;
+    opacity:0;transition:opacity 1.15s cubic-bezier(.4,0,.2,1);
+    background:
+      radial-gradient(130% 92% at 50% -8%, #322c4e 0%, #221f37 34%, #14121f 66%, #07060c 100%);
+  }
+  #nightSky.on{opacity:1}
+  #nightSky::after{
+    content:"";position:absolute;inset:0;
+    background-image:
+      radial-gradient(1.4px 1.4px at 18% 22%, rgba(255,244,225,.7), transparent 60%),
+      radial-gradient(1.2px 1.2px at 72% 14%, rgba(255,240,220,.55), transparent 60%),
+      radial-gradient(1.6px 1.6px at 84% 62%, rgba(255,246,228,.5), transparent 60%),
+      radial-gradient(1.1px 1.1px at 34% 72%, rgba(255,240,220,.45), transparent 60%),
+      radial-gradient(1.3px 1.3px at 56% 88%, rgba(255,244,225,.4), transparent 60%),
+      radial-gradient(1.2px 1.2px at 10% 56%, rgba(255,240,220,.42), transparent 60%);
+    opacity:.9;
+  }
+
+  /* ---------- 标题 ---------- */
+  #brand{
+    position:fixed;left:clamp(18px,3vw,40px);top:clamp(18px,3vh,34px);
+    pointer-events:none;user-select:none;
+  }
+  #brand .eyebrow{
+    font-size:10.5px;letter-spacing:.28em;color:var(--ink-3);
+    text-transform:uppercase;margin-bottom:8px;
+  }
+  #brand h1{
+    margin:0;font-size:clamp(22px,2.6vw,32px);font-weight:500;letter-spacing:.06em;
+    font-family:"Songti SC","STSong","SimSun",Georgia,serif;
+  }
+  #brand h1 em{font-style:normal;color:var(--pink)}
+  #brand p{
+    margin:9px 0 0;font-size:12.5px;color:var(--ink-2);line-height:1.6;
+  }
+
+  /* ---------- 提示 ---------- */
+  #hints{
+    position:fixed;left:clamp(18px,3vw,40px);bottom:clamp(18px,3vh,34px);
+    display:flex;flex-direction:column;gap:9px;pointer-events:none;user-select:none;
+  }
+  .hint{
+    display:flex;align-items:center;gap:9px;
+    font-size:12px;color:var(--ink-2);
+  }
+  .hint svg{width:15px;height:15px;flex:none;opacity:.75}
+  .hint b{font-weight:500;color:var(--ink)}
+  #hintTip{
+    margin-top:2px;font-size:11px;color:var(--ink-3);letter-spacing:.02em;
+    transition:opacity .8s ease;
+  }
+
+  /* ---------- 聚焦暗角 ---------- */
+  #veil{
+    position:fixed;inset:0;pointer-events:none;z-index:2;opacity:0;
+    transition:opacity .62s cubic-bezier(.4,0,.2,1);
+    background:radial-gradient(58% 54% at 50% 47%,
+      rgba(74,48,52,0) 0%, rgba(74,48,52,0) 22%,
+      rgba(74,48,52,.10) 52%, rgba(66,42,46,.20) 78%,
+      rgba(58,36,40,.32) 100%);
+  }
+  #veil.on{opacity:1}
+
+  /* ---------- 部件清单（侧栏） ---------- */
+  #parts{
+    position:fixed;right:clamp(18px,3vw,40px);top:clamp(18px,3vh,34px);
+    width:242px;padding:14px 12px 10px;z-index:6;
+    max-height:calc(100vh - clamp(36px,6vh,68px));overflow-y:auto;
+    overscroll-behavior:contain;
+    background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+    backdrop-filter:blur(16px) saturate(1.25);-webkit-backdrop-filter:blur(16px) saturate(1.25);
+    box-shadow:0 10px 34px -20px rgba(120,80,85,.55);
+    user-select:none;
+  }
+  #parts .cap{
+    display:flex;align-items:baseline;justify-content:space-between;
+    padding:0 6px 9px;border-bottom:1px solid rgba(180,140,145,.16);
+    font-size:11.5px;letter-spacing:.14em;color:var(--ink);
+  }
+  #parts .cap em{
+    font-style:normal;font-size:9px;letter-spacing:.22em;color:var(--ink-3);
+    text-transform:uppercase;
+  }
+  #partList{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:1px}
+  #partList li{
+    position:relative;display:flex;align-items:flex-start;gap:9px;
+    padding:7px 8px 8px 9px;border-radius:8px;cursor:pointer;
+    font-size:12.5px;color:var(--ink-2);line-height:1.3;
+    transition:background .18s ease,color .18s ease,padding .22s ease;
+  }
+  #partList li::before{
+    content:"";position:absolute;left:0;top:50%;width:2px;height:0;
+    border-radius:2px;background:var(--pink);transform:translateY(-50%);
+    transition:height .26s cubic-bezier(.4,0,.2,1);
+  }
+  #partList li .no{
+    font-size:9.5px;letter-spacing:.04em;color:var(--ink-3);
+    font-variant-numeric:tabular-nums;transition:color .2s ease;
+    padding-top:3px;flex:none;
+  }
+  /* 名字一行、说明一行 —— 两行都随拆解高亮 */
+  #partList li .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  #partList li .nm{white-space:nowrap}
+  #partList li .ds{
+    font-size:10.5px;line-height:1.5;color:var(--ink-3);
+    letter-spacing:.01em;transition:color .18s ease;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  #partList li.on .ds{color:var(--ink-2)}
+  #partList li:hover{background:rgba(232,166,182,.14);color:var(--ink)}
+  #partList li.on{background:rgba(232,166,182,.16);color:var(--ink);font-weight:500;padding-left:13px}
+  #partList li.on::before{height:19px}
+  #partList li.on .no{color:var(--pink)}
+
+  #detail{
+    margin-top:9px;padding:10px 9px 3px;
+    border-top:1px solid rgba(180,140,145,.16);min-height:52px;
+  }
+  #detail .d-name{
+    margin:0 0 5px;font-size:12.5px;font-weight:500;
+    color:var(--ink);letter-spacing:.04em;
+  }
+  #detail .d-desc{margin:0;font-size:11px;line-height:1.65;color:var(--ink-2)}
+  /* 详情里的那句"文案"，用一条粉色细线挑出来，和参数区拉开层次 */
+  #detail .d-note{
+    margin:8px 0 0;padding:1px 0 1px 9px;
+    border-left:2px solid rgba(228,150,175,.55);
+    font-size:11px;line-height:1.75;color:var(--ink-2);letter-spacing:.01em;
+  }
+  #detail .d-tech{
+    margin-top:8px;padding-top:7px;border-top:1px dashed rgba(180,140,145,.24);
+    font-size:9.5px;line-height:1.55;color:var(--ink-3);letter-spacing:.02em;
+  }
+  #detail.idle .d-desc{color:var(--ink-3)}
+
+  /* ---------- 工具条 ---------- */
+  #tools{
+    position:fixed;right:clamp(18px,3vw,40px);bottom:clamp(18px,3vh,34px);
+    display:flex;gap:8px;user-select:none;z-index:6;
+  }
+  #tools button{
+    font:inherit;font-size:12px;color:var(--ink);
+    padding:9px 15px;border-radius:999px;cursor:pointer;
+    background:var(--card);border:1px solid var(--line);
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    transition:transform .16s ease,background .18s ease,border-color .18s ease,box-shadow .18s;
+    box-shadow:0 6px 22px -16px rgba(120,80,85,.6);
+  }
+  #tools button:hover{background:rgba(255,255,255,.92);border-color:rgba(200,150,160,.5);transform:translateY(-1px)}
+  #tools button:active{transform:translateY(0) scale(.98)}
+  #tools button.primary{background:#3f2f31;color:#fff8f6;border-color:transparent}
+  #tools button.primary:hover{background:#4b383a}
+  #tools button.on{background:rgba(232,166,182,.28);border-color:rgba(232,166,182,.7)}
+  #btnNight{display:inline-flex;align-items:center;gap:6px}
+  #btnNight svg{width:13px;height:13px;flex:none;opacity:.85}
+  #btnNight.on{background:rgba(63,47,49,.9);color:#ffe9c9;border-color:rgba(63,47,49,.9)}
+  body.night #btnNight.on{background:rgba(255,214,150,.2);color:#ffe4ad;border-color:rgba(255,214,150,.55)}
+  #btnParts{display:none}
+
+  /* ---------- 拆解程度滑杆 ---------- */
+  #explodeUI{
+    position:fixed;right:clamp(18px,3vw,40px);
+    bottom:calc(clamp(18px,3vh,34px) + 46px);
+    display:flex;align-items:center;gap:8px;
+    padding:7px 13px;border-radius:999px;z-index:6;
+    background:var(--card);border:1px solid var(--line);
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    box-shadow:0 6px 22px -16px rgba(120,80,85,.6);
+    user-select:none;opacity:.66;
+    transition:opacity .28s ease,background .8s ease,border-color .8s ease;
+  }
+  #explodeUI:hover,#explodeUI.on{opacity:1}
+  /* 单件聚焦时进度被冻结，滑杆也跟着失效，避免"拖了没反应"的错觉 */
+  #explodeUI.frozen{opacity:.26;pointer-events:none}
+  #explodeUI .ex-lab{
+    font-size:10.5px;letter-spacing:.14em;color:var(--ink-3);
+    transition:color .8s ease;
+  }
+  #exVal{
+    font-size:11px;color:var(--ink);font-variant-numeric:tabular-nums;
+    min-width:31px;text-align:right;transition:color .8s ease;
+  }
+  #exRange{
+    -webkit-appearance:none;appearance:none;
+    width:108px;height:3px;border-radius:3px;outline:none;cursor:pointer;
+    background:linear-gradient(90deg,var(--pink) 0 calc(var(--p,0) * 1%),
+               rgba(184,146,152,.26) calc(var(--p,0) * 1%) 100%);
+    transition:background .8s ease;
+  }
+  #exRange::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;width:12px;height:12px;
+    border-radius:50%;background:var(--pink);border:2px solid #fff8f6;
+    box-shadow:0 2px 6px -1px rgba(150,90,100,.5);cursor:grab;
+  }
+  #exRange::-webkit-slider-thumb:active{cursor:grabbing}
+  #exRange::-moz-range-thumb{
+    width:12px;height:12px;border:2px solid #fff8f6;
+    border-radius:50%;background:var(--pink);cursor:grab;
+  }
+  body.night #exRange{
+    background:linear-gradient(90deg,var(--pink) 0 calc(var(--p,0) * 1%),
+               rgba(255,222,232,.2) calc(var(--p,0) * 1%) 100%);
+  }
+  body.night #exRange::-webkit-slider-thumb{border-color:#241f30}
+
+  /* ---------- 3D 标签 + 引线 ---------- */
+  #labels{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:3}
+  #leaders{
+    position:absolute;inset:0;width:100%;height:100%;
+    pointer-events:none;overflow:visible;
+  }
+  #leaders path{
+    fill:none;stroke:rgba(172,118,130,.5);stroke-width:1;
+    stroke-linecap:round;transition:stroke .8s ease;
+  }
+  #leaders circle{
+    fill:rgba(214,138,156,.85);stroke:none;transition:fill .8s ease;
+  }
+  .lbl{
+    position:absolute;left:0;top:0;opacity:0;
+    display:flex;align-items:center;gap:7px;
+    padding:5px 11px 5px 9px;border-radius:999px;
+    background:rgba(255,252,251,.9);border:1px solid rgba(200,150,160,.36);
+    box-shadow:0 6px 18px -12px rgba(120,80,85,.7);
+    white-space:nowrap;will-change:transform,opacity;
+    transition:opacity .25s ease,background .8s ease,border-color .8s ease;
+  }
+  .lbl i{
+    width:5px;height:5px;border-radius:50%;background:var(--pink);flex:none;
+    transition:background .8s ease;
+  }
+  .lbl span{font-size:11.5px;color:var(--ink);letter-spacing:.02em;transition:color .8s ease}
+  .lbl small{display:none}
+
+  /* 静态画面模式（截图 / 分享固定视角）：跳过淡入，直接给终态 */
+  body.still .lbl,body.still #leaders path,body.still #leaders circle,body.still #giftWish{transition:none!important}
+  body.still #nightSky{transition:none!important}
+
+  /* ---------- 载入 ---------- */
+  #loader{
+    position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    background:#fbf3f1;z-index:20;transition:opacity .6s ease;
+    font-size:12px;color:var(--ink-3);letter-spacing:.24em;
+  }
+  #loader.hide{opacity:0;pointer-events:none}
+
+  /* ---------- 开场：拆礼盒 ---------- */
+  /* 礼盒在的时候，整套操作界面先收起来，只留一句提示 —— 免得抢戏 */
+  body.gift #brand,body.gift #hints,body.gift #parts,
+  body.gift #tools,body.gift #explodeUI{opacity:0;pointer-events:none}
+  body.gift #brand{transform:translateY(-12px)}
+  #brand,#hints,#parts,#tools,#explodeUI{
+    transition:opacity .55s ease,transform .55s ease;
+  }
+
+  #giftHint{
+    position:fixed;left:50%;bottom:clamp(40px,8vh,86px);transform:translateX(-50%);
+    z-index:11;display:none;flex-direction:column;align-items:center;gap:12px;
+    pointer-events:none;text-align:center;
+  }
+  body.gift #giftHint{display:flex}
+  #giftHint .gh-txt{
+    font-size:12px;letter-spacing:.15em;color:#7b5a63;
+    padding:9px 18px;border-radius:999px;
+    background:rgba(255,255,255,.93);border:1px solid rgba(150,108,118,.26);
+    backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+    box-shadow:0 12px 32px -20px rgba(120,80,85,.85);
+    transition:opacity .26s ease,transform .26s ease;
+  }
+  #giftHint.beat .gh-txt{transform:scale(1.04)}
+  #giftHint .gh-dots{display:flex;gap:8px}
+  #giftHint .gh-dots i{
+    display:block;width:7px;height:7px;border-radius:50%;
+    background:rgba(158,118,128,.3);
+    transition:background .34s ease,transform .34s ease;
+  }
+  #giftHint .gh-dots i.on{background:#e2889f;transform:scale(1.4)}
+  #giftHint .gh-dots i.beat{animation:dotBeat .4s cubic-bezier(.3,1.6,.5,1)}
+  @keyframes dotBeat{0%{transform:scale(.7)}58%{transform:scale(2.1)}100%{transform:scale(1.4)}}
+
+  #giftWish{
+    position:fixed;left:50%;top:35%;width:min(92vw,760px);z-index:12;
+    transform:translate(-50%,-50%) scale(.84);opacity:0;text-align:center;
+    pointer-events:none;
+    transition:opacity .7s ease,transform 1.05s cubic-bezier(.16,1.16,.32,1);
+  }
+  /* 字后面压一团柔白雾：不然粉字落在粉色蛋糕上根本看不清 */
+  #giftWish::before{
+    content:"";position:absolute;left:50%;top:50%;
+    width:146%;height:206%;transform:translate(-50%,-50%);
+    background:radial-gradient(closest-side ellipse,
+      rgba(255,251,250,.86) 0%,rgba(255,251,250,.56) 46%,rgba(255,251,250,0) 74%);
+    z-index:-1;
+  }
+  #giftWish.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+  #giftWish.out{opacity:0;transform:translate(-50%,-64%) scale(1.04)}
+  #giftWish .gw-eyebrow{
+    font-size:10px;letter-spacing:.44em;text-transform:uppercase;
+    color:rgba(176,96,124,.95);margin-bottom:15px;
+  }
+  #giftWish .gw-cn{
+    font-size:clamp(42px,8.6vw,94px);line-height:1.05;letter-spacing:.12em;
+    font-weight:500;color:#a83a5e;
+    text-shadow:0 1px 0 rgba(255,255,255,.8),0 12px 36px rgba(178,92,124,.3);
+  }
+  #giftWish .gw-sub{
+    margin-top:17px;font-size:12px;letter-spacing:.12em;line-height:1.95;
+    color:#8e6470;
+  }
+
+  /* ---------- 关灯后的界面配色 ---------- */
+  body.night{
+    --ink:#f6e8ec;
+    --ink-2:#c9b6c1;
+    --ink-3:#94828f;
+    --line:rgba(255,222,232,.16);
+    --card:rgba(26,23,38,.66);
+    --pink:#f2a9be;
+    --gold:#f0cf7a;
+  }
+  body.night #parts{box-shadow:0 12px 40px -18px rgba(0,0,0,.8)}
+  body.night #partList li.on{background:rgba(242,169,190,.18)}
+  body.night #partList li:hover{background:rgba(242,169,190,.11)}
+  body.night #detail .d-tech{border-top-color:rgba(255,222,232,.16)}
+  body.night #parts .cap{border-bottom-color:rgba(255,222,232,.14)}
+  body.night #tools button{
+    background:rgba(26,23,38,.7);border-color:rgba(255,222,232,.18);
+    box-shadow:0 8px 26px -16px rgba(0,0,0,.9);
+  }
+  body.night #tools button:hover{background:rgba(40,35,56,.9);border-color:rgba(242,169,190,.5)}
+  body.night #tools button.primary{background:#f3e6ea;color:#2a1f26;border-color:transparent}
+  body.night #tools button.primary:hover{background:#fff6f8}
+  body.night #tools button.on{background:rgba(242,169,190,.26);border-color:rgba(242,169,190,.72)}
+  body.night .lbl{background:rgba(22,20,32,.74);border-color:rgba(255,214,226,.26)}
+  body.night #leaders path{stroke:rgba(255,206,224,.42)}
+  body.night #leaders circle{fill:rgba(255,205,222,.8)}
+  #parts,#tools button,#brand h1,#brand p,.hint,#hintTip{
+    transition:background .8s ease,color .8s ease,border-color .8s ease;
+  }
+
+  @media (max-width:860px){
+    #parts{
+      top:0;right:0;bottom:0;width:238px;border-radius:0;
+      background:rgba(255,252,251,.94);
+      border:0;border-left:1px solid var(--line);
+      padding:calc(20px + env(safe-area-inset-top)) 14px calc(16px + env(safe-area-inset-bottom));
+      transform:translateX(103%);transition:transform .42s cubic-bezier(.4,0,.2,1);
+      overflow-y:auto;will-change:transform;
+    }
+    #parts.open{transform:translateX(0);box-shadow:-16px 0 40px -26px rgba(90,60,64,.6)}
+    body.night #parts{background:rgba(24,21,34,.96)}
+    #btnParts{display:inline-block}
+    #brand p{display:none}
+    #tools{gap:6px}
+    #tools button{padding:8px 12px;font-size:11.5px}
+    #hints{gap:6px}
+    .hint{font-size:11px}
+  }
+  @media (max-width:520px){
+    #tools{
+      left:50%;right:auto;transform:translateX(-50%);
+      bottom:calc(14px + env(safe-area-inset-bottom));gap:5px;
+    }
+    #tools button{
+      padding:8px 10px;font-size:11px;white-space:nowrap;flex:none;
+    }
+    #explodeUI{
+      left:50%;right:auto;transform:translateX(-50%);
+      bottom:calc(58px + env(safe-area-inset-bottom));
+      padding:6px 12px;
+    }
+    #exRange{width:82px}
+    #hints{bottom:calc(96px + env(safe-area-inset-bottom))}
+  }
+</style>
+</head>
+<body class="gift">
+
+<div id="nightSky"></div>
+<canvas id="c"></canvas>
+<div id="veil"></div>
+<div id="labels"><svg id="leaders" xmlns="http://www.w3.org/2000/svg"></svg></div>
+
+<header id="brand">
+  <div class="eyebrow">Moonlight cake · interactive</div>
+  <h1>月光<em>蛋糕</em></h1>
+  <p>代码生成的每一层奶油、每一片花瓣<br>点击任意部件，把它拆开看看</p>
+</header>
+
+<div id="hints">
+  <div class="hint">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M9 11V6a2 2 0 1 1 4 0v5"/><path d="M13 11V8a2 2 0 1 1 4 0v6a6 6 0 0 1-6 6h-1a6 6 0 0 1-6-6v-2a2 2 0 1 1 4 0"/></svg>
+    <span><b>拖拽</b> 旋转视角</span>
+  </div>
+  <div class="hint">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="9" y="2.5" width="6" height="11" rx="3"/><path d="M12 6.5v2"/><path d="M6.5 11a5.5 5.5 0 0 0 11 0"/><path d="M12 16.5V21"/></svg>
+    <span><b>滚轮 / 双指</b> 缩放</span>
+  </div>
+  <div class="hint">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="M15.8 15.8 21 21"/><path d="M11 8.4v5.2M8.4 11h5.2"/></svg>
+    <span><b>点击部件</b> 单独取出放大</span>
+  </div>
+  <div id="hintTip">共 10 个部件 · 点空白处退出聚焦</div>
+</div>
+
+<aside id="parts">
+  <div class="cap"><span>部件清单</span><em>Parts</em></div>
+  <ul id="partList"></ul>
+  <div id="detail" class="idle">
+    <p class="d-desc">点击任意部件，单独取出并放大查看</p>
+  </div>
+</aside>
+
+<div id="explodeUI">
+  <span class="ex-lab">拆解</span>
+  <input id="exRange" type="range" min="0" max="100" step="0.5" value="0" aria-label="拆解程度">
+  <span id="exVal">0%</span>
+</div>
+
+<div id="tools">
+  <button id="btnParts">清单</button>
+  <button id="btnAll" class="primary">拆解全部</button>
+  <button id="btnReset">复原</button>
+  <button id="btnSpin" class="on">自动旋转</button>
+  <button id="btnNight">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 14.2A8.6 8.6 0 0 1 9.8 3.5 8.6 8.6 0 1 0 20.5 14.2Z"/></svg>
+    <span id="btnNightText">关灯</span>
+  </button>
+</div>
+
+<div id="giftHint">
+  <span class="gh-txt">轻点礼盒，把它打开</span>
+  <span class="gh-dots"></span>
+</div>
+
+<div id="giftWish">
+  <div class="gw-eyebrow">Happy Birthday</div>
+  <div class="gw-cn">生日快乐</div>
+  <div class="gw-sub">愿今天所有的光，都落在你身上</div>
+</div>
+
+<div id="loader">正在裱花…</div>
+
+<script type="module">
+/* ------------------------------------------------------------
+   three.js 多源加载：国内镜像优先，失败自动回退
+   ------------------------------------------------------------ */
+const THREE_SOURCES = [
+  './three.module.js',                                            // 同目录本地副本：离线可用
+  'https://registry.npmmirror.com/three/0.169.0/files/build/three.module.js',
+  'https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js',
+  'https://unpkg.com/three@0.169.0/build/three.module.js',
+  'https://esm.sh/three@0.169.0'
+];
+let THREE = null;
+for (const src of THREE_SOURCES){
+  try { THREE = await import(src); break; }
+  catch (err){ console.warn('[three.js] 源不可用:', src); }
+}
+if (!THREE){
+  const l = document.getElementById('loader');
+  if (l) l.textContent = 'three.js 加载失败 · 请检查网络后刷新';
+  document.body.classList.remove('gift');   // 别让整套界面跟着礼盒一起被藏住
+  throw new Error('three.js unavailable');
+}
+
+/* ============================================================
+   0. 基础常量
+   ============================================================ */
+const R         = 2.15;          // 蛋糕半径
+const PLATE_TOP = 0.30;          // 盘子顶面高度
+const CAKE_BOT  = 0.34;
+const LAYER_H   = 0.575;
+const CAKE_TOP  = CAKE_BOT + LAYER_H * 3;   // ≈ 2.065
+const LAKE_Y    = CAKE_TOP + 0.025;
+
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+let seed = 20261029;
+function rnd(){ seed = (seed * 1664525 + 1013904223) & 0x7fffffff; return seed / 0x7fffffff; }
+const rr = (a, b) => a + rnd() * (b - a);
+
+/* ============================================================
+   1. 渲染器 / 场景 / 相机
+   ============================================================ */
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.84;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 120);
+
+/* 程序化环境贴图：给金箔、镜面糖浆提供柔和的棚拍反射 */
+(function buildEnv(){
+  const W = 512, H = 256;
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const g = cv.getContext('2d');
+  const lg = g.createLinearGradient(0, 0, 0, H);
+  lg.addColorStop(0.00, '#fffdfb');
+  lg.addColorStop(0.28, '#f6ece7');
+  lg.addColorStop(0.48, '#ded0cb');
+  lg.addColorStop(0.66, '#a2918c');
+  lg.addColorStop(1.00, '#4e423f');
+  g.fillStyle = lg; g.fillRect(0, 0, W, H);
+
+  /* 柔光箱：给金属和糖浆留下有形状的高光条，这是"质感"的来源 */
+  const soft = (x, y, rx, ry, al, col) => {
+    const rg = g.createRadialGradient(x, y, 0, x, y, Math.max(rx, ry));
+    rg.addColorStop(0, 'rgba(' + col + ',' + al + ')');
+    rg.addColorStop(0.45, 'rgba(' + col + ',' + al * 0.55 + ')');
+    rg.addColorStop(1, 'rgba(' + col + ',0)');
+    g.save(); g.translate(x, y); g.scale(rx / Math.max(rx, ry), ry / Math.max(rx, ry));
+    g.fillStyle = rg;
+    g.beginPath(); g.arc(0, 0, Math.max(rx, ry), 0, Math.PI * 2); g.fill(); g.restore();
+  };
+  soft(150, 58, 150, 46, 0.95, '255,255,255');   // 主光（左上前）
+  soft(360, 74, 70, 26, 0.70, '255,246,240');    // 侧光条
+  soft(20, 40, 60, 40, 0.35, '255,250,246');
+  soft(250, 210, 240, 42, 0.30, '255,236,226');  // 台面回弹
+  soft(430, 150, 90, 60, 0.16, '255,240,238');
+
+  const tex = new THREE.CanvasTexture(cv);
+  tex.mapping = THREE.EquirectangularReflectionMapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromEquirectangular(tex).texture;
+  pmrem.dispose(); tex.dispose();
+})();
+
+/* ---- 灯光 ---- */
+const key = new THREE.DirectionalLight(0xfff3e8, 1.75);
+key.position.set(4.6, 8.6, 5.4);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.left = -6.5; key.shadow.camera.right = 6.5;
+key.shadow.camera.top = 7.5;   key.shadow.camera.bottom = -4;
+key.shadow.camera.near = 1;    key.shadow.camera.far = 26;
+key.shadow.bias = -0.0005; key.shadow.normalBias = 0.022;
+key.shadow.camera.updateProjectionMatrix();
+scene.add(key);
+
+/* 冷调轮廓光：把粉白蛋糕从背景里"切"出来 */
+const rim = new THREE.DirectionalLight(0xffe2ec, 0.55);
+rim.position.set(-6, 4.5, -5.2);
+scene.add(rim);
+
+const fill = new THREE.DirectionalLight(0xfff2ef, 0.10);
+fill.position.set(-3, 2.2, 7);
+scene.add(fill);
+
+/* 低位暖光：模拟台面回弹，照亮奶油的下沿和花瓣内侧 */
+const bounce = new THREE.DirectionalLight(0xffd9c4, 0.30);
+bounce.position.set(-0.8, -1.6, 5.2);
+scene.add(bounce);
+
+const hemi = new THREE.HemisphereLight(0xffffff, 0xcbbdba, 0.07);
+scene.add(hemi);
+
+/* ---- 地面：只接收阴影 ---- */
+const ground = new THREE.Mesh(
+  new THREE.CircleGeometry(9, 64).rotateX(-Math.PI / 2),
+  new THREE.ShadowMaterial({ color: 0x8a6a63, opacity: 0.17 })
+);
+ground.position.y = 0.001; ground.receiveShadow = true;
+scene.add(ground);
+
+/* ---- 接触阴影（柔化落地感） ---- */
+const contactM = (function contactShadow(){
+  const cv = document.createElement('canvas'); cv.width = cv.height = 256;
+  const g = cv.getContext('2d');
+  const rg = g.createRadialGradient(128, 128, 8, 128, 128, 128);
+  rg.addColorStop(0, 'rgba(120,80,85,.55)');
+  rg.addColorStop(0.45, 'rgba(120,80,85,.22)');
+  rg.addColorStop(1, 'rgba(120,80,85,0)');
+  g.fillStyle = rg; g.fillRect(0, 0, 256, 256);
+  const t = new THREE.CanvasTexture(cv);
+  const m = new THREE.Mesh(
+    new THREE.PlaneGeometry(7.4, 7.4),
+    new THREE.MeshBasicMaterial({ map: t, transparent: true, opacity: 0.66, depthWrite: false })
+  );
+  m.rotation.x = -Math.PI / 2; m.position.y = 0.003;
+  scene.add(m);
+  return m;
+})();
+
+/* ============================================================
+   2. 材质与纹理
+   ============================================================ */
+function cakeGradientTexture(){
+  const cv = document.createElement('canvas'); cv.width = 16; cv.height = 512;
+  const x = cv.getContext('2d');
+  const g = x.createLinearGradient(0, 0, 0, 512);
+  g.addColorStop(0.00, '#fffdfa');
+  g.addColorStop(0.22, '#fdf5f2');
+  g.addColorStop(0.38, '#f7c9d5');
+  g.addColorStop(0.68, '#eca8be');
+  g.addColorStop(1.00, '#d9849f');
+  x.fillStyle = g; x.fillRect(0, 0, 16, 512);
+  for (let i = 0; i < 900; i++){
+    x.fillStyle = 'rgba(255,255,255,' + (0.03 + Math.random() * 0.05) + ')';
+    x.fillRect(Math.random() * 16, Math.random() * 512, 1 + Math.random() * 2, 1 + Math.random() * 3);
+  }
+  const t = new THREE.CanvasTexture(cv);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
+  return t;
+}
+const baseGradient = cakeGradientTexture();
+
+/* 糖浆湖面的径向渐变：中心浅、边缘深，像一汪真的糖浆 */
+function lakeTexture(){
+  const cv = document.createElement('canvas'); cv.width = cv.height = 256;
+  const x = cv.getContext('2d');
+  const g = x.createRadialGradient(128, 128, 6, 128, 128, 128);
+  g.addColorStop(0.00, '#f9c6ad');
+  g.addColorStop(0.48, '#f2a687');
+  g.addColorStop(0.86, '#e78a63');
+  g.addColorStop(1.00, '#dd7c58');
+  x.fillStyle = g; x.fillRect(0, 0, 256, 256);
+  const t = new THREE.CanvasTexture(cv);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+const lakeTex = lakeTexture();
+
+/* ------------------------------------------------------------
+   程序化贴图：法线 / 粗糙度
+   每种材质给一套自己的微观表面，才不会看起来都是同一个塑料
+   ------------------------------------------------------------ */
+function makeCanvas(w, h){
+  const cv = document.createElement('canvas');
+  cv.width = w; cv.height = h;
+  return cv;
+}
+function texFromCanvas(cv, opt = {}){
+  const t = new THREE.CanvasTexture(cv);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = 8;
+  if (opt.srgb) t.colorSpace = THREE.SRGBColorSpace;
+  if (opt.repeat) t.repeat.set(opt.repeat[0], opt.repeat[1]);
+  return t;
+}
+/* 无缝铺设：同一笔触在 3×3 个偏移位置各画一次 */
+function tiled(n, w, h, fn){
+  for (let i = 0; i < n; i++){
+    const x = Math.random() * w, y = Math.random() * h;
+    for (let dx = -1; dx <= 1; dx++){
+      for (let dy = -1; dy <= 1; dy++) fn(x + dx * w, y + dy * h, i);
+    }
+  }
+}
+function softDot(g, x, y, r, a, up){
+  const rg = g.createRadialGradient(x, y, 0, x, y, r);
+  const c = up ? '255,255,255' : '0,0,0';
+  rg.addColorStop(0, 'rgba(' + c + ',' + a + ')');
+  rg.addColorStop(0.55, 'rgba(' + c + ',' + a * 0.45 + ')');
+  rg.addColorStop(1, 'rgba(' + c + ',0)');
+  g.fillStyle = rg;
+  g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+}
+/* 灰度高度场 → 切线空间法线贴图 */
+function heightToNormal(cv, strength){
+  const w = cv.width, h = cv.height;
+  const src = cv.getContext('2d').getImageData(0, 0, w, h).data;
+  const H = new Float32Array(w * h);
+  for (let i = 0; i < w * h; i++) H[i] = src[i * 4] / 255;
+  const out = makeCanvas(w, h);
+  const oc = out.getContext('2d');
+  const img = oc.createImageData(w, h);
+  const at = (x, y) => H[((y + h) % h) * w + ((x + w) % w)];
+  for (let y = 0; y < h; y++){
+    for (let x = 0; x < w; x++){
+      const dx = (at(x + 1, y) - at(x - 1, y)) * strength;
+      const dy = (at(x, y + 1) - at(x, y - 1)) * strength;
+      const nx = -dx, ny = -dy, nz = 1;
+      const l = Math.sqrt(nx * nx + ny * ny + nz * nz);
+      const i = (y * w + x) * 4;
+      img.data[i]     = (nx / l * 0.5 + 0.5) * 255;
+      img.data[i + 1] = (ny / l * 0.5 + 0.5) * 255;
+      img.data[i + 2] = (nz / l * 0.5 + 0.5) * 255;
+      img.data[i + 3] = 255;
+    }
+  }
+  oc.putImageData(img, 0, 0);
+  return out;
+}
+
+/* 1) 抹面奶油：大块的抹刀起伏 + 细颗粒 */
+function butterHeight(){
+  const S = 512, cv = makeCanvas(S, S), g = cv.getContext('2d');
+  g.fillStyle = '#808080'; g.fillRect(0, 0, S, S);
+  // 拉长的竖向刀痕
+  tiled(150, S, S, (x, y) => {
+    g.save(); g.translate(x, y); g.rotate((Math.random() - 0.5) * 0.5);
+    g.scale(1, 3.4 + Math.random() * 2);
+    softDot(g, 0, 0, 26 + Math.random() * 40, 0.14, Math.random() > 0.45);
+    g.restore();
+  });
+  tiled(900, S, S, (x, y) => softDot(g, x, y, 3 + Math.random() * 7, 0.16, Math.random() > 0.5));
+  return cv;
+}
+/* 2) 裱花奶油：柔软的大鼓包 */
+function creamHeight(){
+  const S = 256, cv = makeCanvas(S, S), g = cv.getContext('2d');
+  g.fillStyle = '#808080'; g.fillRect(0, 0, S, S);
+  tiled(70, S, S, (x, y) => softDot(g, x, y, 22 + Math.random() * 34, 0.30, Math.random() > 0.38));
+  tiled(160, S, S, (x, y) => softDot(g, x, y, 6 + Math.random() * 10, 0.14, Math.random() > 0.5));
+  return cv;
+}
+/* 3) 花瓣：根到尖的细脉络 */
+function petalHeight(){
+  const S = 256, cv = makeCanvas(S, S), g = cv.getContext('2d');
+  g.fillStyle = '#808080'; g.fillRect(0, 0, S, S);
+  for (let i = 0; i < 26; i++){
+    const x0 = Math.random() * S;
+    const spread = (Math.random() - 0.5) * 60;
+    g.strokeStyle = 'rgba(255,255,255,0.075)';
+    g.lineWidth = 0.8 + Math.random() * 1.2;
+    g.beginPath();
+    g.moveTo(x0, S);
+    g.bezierCurveTo(x0 + spread * 0.3, S * 0.66, x0 + spread * 0.8, S * 0.3, x0 + spread, 0);
+    g.stroke();
+  }
+  tiled(120, S, S, (x, y) => softDot(g, x, y, 8 + Math.random() * 16, 0.08, Math.random() > 0.5));
+  return cv;
+}
+/* 4) 金箔：脆硬的褶皱 */
+function foilHeight(){
+  const S = 256, cv = makeCanvas(S, S), g = cv.getContext('2d');
+  g.fillStyle = '#808080'; g.fillRect(0, 0, S, S);
+  for (let i = 0; i < 260; i++){
+    const x = Math.random() * S, y = Math.random() * S;
+    const r = 5 + Math.random() * 16;
+    const up = Math.random() > 0.5;
+    g.fillStyle = up ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.16)';
+    g.beginPath();
+    g.moveTo(x + r, y);
+    g.lineTo(x + r * 0.3, y + r * 0.9);
+    g.lineTo(x - r * 0.8, y + r * 0.3);
+    g.lineTo(x - r * 0.4, y - r * 0.8);
+    g.closePath(); g.fill();
+  }
+  return cv;
+}
+/* 5) 糖浆：细密的水波 */
+function rippleHeight(){
+  const S = 256, cv = makeCanvas(S, S), g = cv.getContext('2d');
+  g.fillStyle = '#808080'; g.fillRect(0, 0, S, S);
+  tiled(260, S, S, (x, y) => {
+    g.save(); g.translate(x, y); g.rotate(Math.random() * 3.14);
+    g.scale(2.6, 0.55);
+    softDot(g, 0, 0, 7 + Math.random() * 12, 0.16, Math.random() > 0.5);
+    g.restore();
+  });
+  return cv;
+}
+/* 6) 蛋糕切面：粗糙的气孔颗粒 */
+function crumbHeight(){
+  const S = 256, cv = makeCanvas(S, S), g = cv.getContext('2d');
+  g.fillStyle = '#8a8a8a'; g.fillRect(0, 0, S, S);
+  tiled(1400, S, S, (x, y) => {
+    g.fillStyle = Math.random() > 0.5 ? 'rgba(255,255,255,0.30)' : 'rgba(0,0,0,0.30)';
+    g.beginPath(); g.arc(x, y, 1.2 + Math.random() * 3.4, 0, Math.PI * 2); g.fill();
+  });
+  return cv;
+}
+/* 灰度噪声贴图（做粗糙度扰动） */
+function roughCanvas(blobs, base, amp){
+  const S = 256, cv = makeCanvas(S, S), g = cv.getContext('2d');
+  g.fillStyle = base; g.fillRect(0, 0, S, S);
+  tiled(blobs, S, S, (x, y) => {
+    const a = amp * (0.4 + Math.random() * 0.6);
+    softDot(g, x, y, 10 + Math.random() * 26, a, Math.random() > 0.5);
+  });
+  return cv;
+}
+
+const TEX = {
+  butterNormal : texFromCanvas(heightToNormal(butterHeight(), 3.2), { repeat: [5, 1.25] }),
+  butterRough  : texFromCanvas(roughCanvas(180, '#f0f0f0', 0.30), { repeat: [7, 1.2] }),
+  creamNormal  : texFromCanvas(heightToNormal(creamHeight(), 2.4),  { repeat: [14, 2.2] }),
+  petalNormal  : texFromCanvas(heightToNormal(petalHeight(), 1.5)),
+  foilNormal   : texFromCanvas(heightToNormal(foilHeight(), 2.6)),
+  rippleNormal : texFromCanvas(heightToNormal(rippleHeight(), 1.8), { repeat: [4, 4] }),
+  crumbNormal  : texFromCanvas(heightToNormal(crumbHeight(), 2.2),  { repeat: [5, 3] })
+};
+
+const M = {
+  /* 金箔：镜面金属 + 皱褶法线；关灯时自己会亮（nightEI 按面积给，越小的星越要收） */
+  gold: (nightEI = 1.0) => {
+    const m = new THREE.MeshStandardMaterial({
+      color: 0xd8a94c, metalness: 1, roughness: 0.22,
+      normalMap: TEX.foilNormal, normalScale: new THREE.Vector2(0.7, 0.7),
+      emissive: 0xffc24a, emissiveIntensity: 0,
+      envMapIntensity: 1.5
+    });
+    m.userData.nightEI = nightEI;
+    return m;
+  },
+  /* 珍珠糖：珠光 + 彩虹干涉，是小面积但很抢眼的质感 */
+  pearl: () => new THREE.MeshPhysicalMaterial({
+    color: 0xffeef1, roughness: 0.14, metalness: 0,
+    clearcoat: 1, clearcoatRoughness: 0.06,
+    iridescence: 0.9, iridescenceIOR: 1.42,
+    iridescenceThicknessRange: [160, 640],
+    sheen: 0.5, sheenColor: new THREE.Color(0xffe2ee),
+    envMapIntensity: 1.1
+  }),
+  /* 裱花奶油：缎面光泽，比蛋糕体亮一档 */
+  cream: () => new THREE.MeshPhysicalMaterial({
+    color: 0xfff9f4, roughness: 0.42, metalness: 0,
+    normalMap: TEX.creamNormal, normalScale: new THREE.Vector2(0.55, 0.55),
+    clearcoat: 0.55, clearcoatRoughness: 0.34,
+    sheen: 0.9, sheenColor: new THREE.Color(0xffe1e9), sheenRoughness: 0.55,
+    side: THREE.DoubleSide, envMapIntensity: 0.8
+  }),
+  /* 玫瑰花瓣：天鹅绒质感的哑光，强 sheen 出绒毛边 */
+  rose: () => new THREE.MeshPhysicalMaterial({
+    color: 0xeda2ba, roughness: 0.62, metalness: 0,
+    normalMap: TEX.petalNormal, normalScale: new THREE.Vector2(0.13, 0.13),
+    clearcoat: 0.1, clearcoatRoughness: 0.72,
+    sheen: 1.0, sheenColor: new THREE.Color(0xffdbe6), sheenRoughness: 0.3,
+    vertexColors: true,
+    side: THREE.DoubleSide, envMapIntensity: 0.45
+  }),
+  leaf: () => new THREE.MeshStandardMaterial({
+    color: 0x7d9a68, roughness: 0.8, metalness: 0,
+    side: THREE.DoubleSide, envMapIntensity: 0.5
+  }),
+  /* 蛋糕侧壁：哑光抹面，几乎不反光，和奶油形成对比 */
+  cake: (tex) => new THREE.MeshPhysicalMaterial({
+    map: tex, roughness: 0.9, metalness: 0,
+    normalMap: TEX.butterNormal, normalScale: new THREE.Vector2(1.35, 1.35),
+    roughnessMap: TEX.butterRough,
+    clearcoat: 0.1, clearcoatRoughness: 0.85,
+    sheen: 0.5, sheenColor: new THREE.Color(0xffeef2), sheenRoughness: 0.9,
+    envMapIntensity: 0.22
+  }),
+  /* 蛋糕切面：粗糙海绵，颗粒感很强 */
+  crumb: () => new THREE.MeshStandardMaterial({
+    color: 0xe9cba6, roughness: 0.99, metalness: 0,
+    normalMap: TEX.crumbNormal, normalScale: new THREE.Vector2(1.0, 1.0),
+    envMapIntensity: 0.3
+  }),
+  moonWhite: () => {
+    const m = new THREE.MeshPhysicalMaterial({
+      color: 0xfffbf6, roughness: 0.38, metalness: 0,
+      clearcoat: 0.45, clearcoatRoughness: 0.3, envMapIntensity: 0.65,
+      emissive: 0xffe3a0, emissiveIntensity: 0
+    });
+    m.userData.nightEI = 0.82;
+    return m;
+  },
+  boat: () => new THREE.MeshPhysicalMaterial({
+    color: 0xefa992, roughness: 0.34, metalness: 0,
+    clearcoat: 0.7, clearcoatRoughness: 0.18,
+    side: THREE.DoubleSide, envMapIntensity: 0.9
+  }),
+  /* 镜面糖浆：低粗糙 + 满 clearcoat，压得住高光条 */
+  lake: () => new THREE.MeshPhysicalMaterial({
+    map: lakeTex, color: 0xffffff, roughness: 0.13, metalness: 0,
+    normalMap: TEX.rippleNormal, normalScale: new THREE.Vector2(0.55, 0.55),
+    clearcoat: 1, clearcoatRoughness: 0.05,
+    side: THREE.DoubleSide, envMapIntensity: 1.0
+  }),
+  /* 骨瓷盘：釉面高光 */
+  plate: () => new THREE.MeshPhysicalMaterial({
+    color: 0xfff8f4, roughness: 0.12, metalness: 0,
+    clearcoat: 1, clearcoatRoughness: 0.03,
+    side: THREE.DoubleSide, envMapIntensity: 1.0
+  })
+};
+
+
+/* ============================================================
+   3. 几何工具
+   ============================================================ */
+function mergeGeos(items){
+  const geos = items.map(it => {
+    const g = it.geo.clone();
+    if (it.matrix) g.applyMatrix4(it.matrix);
+    if (!g.attributes.uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+    return g;
+  });
+  let vc = 0, ic = 0;
+  geos.forEach(g => { vc += g.attributes.position.count; ic += g.index ? g.index.count : g.attributes.position.count; });
+  const pos = new Float32Array(vc * 3), nor = new Float32Array(vc * 3), uv = new Float32Array(vc * 2);
+  const col = new Float32Array(vc * 3).fill(1);
+  const idx = vc > 65535 ? new Uint32Array(ic) : new Uint16Array(ic);
+  let vo = 0, io = 0;
+  for (const g of geos){
+    const p = g.attributes.position, n = g.attributes.normal, u = g.attributes.uv, c = g.attributes.color;
+    pos.set(p.array, vo * 3);
+    if (n) nor.set(n.array, vo * 3);
+    if (u) uv.set(u.array, vo * 2);
+    if (c) col.set(c.array, vo * 3);
+    if (g.index){ const a = g.index.array; for (let k = 0; k < a.length; k++) idx[io++] = a[k] + vo; }
+    else { for (let k = 0; k < p.count; k++) idx[io++] = k + vo; }
+    vo += p.count;
+    g.dispose();
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  out.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  out.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  out.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  out.setIndex(new THREE.BufferAttribute(idx, 1));
+  return out;
+}
+
+/* 给曲面网格加厚度：正反两壳 + 四周缝边，去掉"纸片"感 */
+function solidifyGrid(geo, segU, segV, t){
+  const src = geo.attributes.position.array;
+  const cols = geo.attributes.color ? geo.attributes.color.array : null;
+  const uvs = geo.attributes.uv ? geo.attributes.uv.array : null;
+  const nx = segU + 1, ny = segV + 1, n = nx * ny;
+  const NRM = new Float32Array(n * 3);
+  const get = (i, j) => { const k = (i * nx + j) * 3; return [src[k], src[k + 1], src[k + 2]]; };
+  for (let i = 0; i < ny; i++){
+    for (let j = 0; j < nx; j++){
+      const i0 = Math.max(0, i - 1), i1 = Math.min(ny - 1, i + 1);
+      const j0 = Math.max(0, j - 1), j1 = Math.min(nx - 1, j + 1);
+      const a = get(i, j0), b = get(i, j1), c = get(i0, j), d = get(i1, j);
+      const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
+      const vx = d[0] - c[0], vy = d[1] - c[1], vz = d[2] - c[2];
+      const ex = uy * vz - uz * vy, ey = uz * vx - ux * vz, ez = ux * vy - uy * vx;
+      const l = Math.sqrt(ex * ex + ey * ey + ez * ez) || 1;
+      const k = (i * nx + j) * 3;
+      NRM[k] = ex / l; NRM[k + 1] = ey / l; NRM[k + 2] = ez / l;
+    }
+  }
+  const half = t * 0.5;
+  const pos = [], nor = [], uv2 = [], col = [], idx = [];
+  for (let v = 0; v < n; v++){
+    const k = v * 3;
+    pos.push(src[k] + NRM[k] * half, src[k + 1] + NRM[k + 1] * half, src[k + 2] + NRM[k + 2] * half);
+    nor.push(NRM[k], NRM[k + 1], NRM[k + 2]);
+    uv2.push(uvs ? uvs[v * 2] : 0, uvs ? uvs[v * 2 + 1] : 0);
+    col.push(cols ? cols[k] : 1, cols ? cols[k + 1] : 1, cols ? cols[k + 2] : 1);
+  }
+  for (let v = 0; v < n; v++){
+    const k = v * 3;
+    pos.push(src[k] - NRM[k] * half, src[k + 1] - NRM[k + 1] * half, src[k + 2] - NRM[k + 2] * half);
+    nor.push(-NRM[k], -NRM[k + 1], -NRM[k + 2]);
+    uv2.push(uvs ? uvs[v * 2] : 0, uvs ? uvs[v * 2 + 1] : 0);
+    col.push((cols ? cols[k] : 1) * 0.93, (cols ? cols[k + 1] : 1) * 0.93, (cols ? cols[k + 2] : 1) * 0.93);
+  }
+  for (let i = 0; i < segV; i++){
+    for (let j = 0; j < segU; j++){
+      const a = i * nx + j, b = a + 1, c = a + nx, d = c + 1;
+      idx.push(a, b, c, b, d, c);
+      idx.push(n + a, n + c, n + b, n + b, n + c, n + d);
+    }
+  }
+  const stitch = (xa, xb) => { idx.push(xa, n + xa, xb, xb, n + xa, n + xb); };
+  for (let j = 0; j < segU; j++){ stitch(j, j + 1); stitch(segV * nx + j, segV * nx + j + 1); }
+  for (let i = 0; i < segV; i++){ stitch(i * nx, (i + 1) * nx); stitch(i * nx + segU, (i + 1) * nx + segU); }
+
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  out.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  out.setAttribute('uv', new THREE.Float32BufferAttribute(uv2, 2));
+  out.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  out.setIndex(idx);
+  return out;
+}
+
+/* 花瓣：参数曲面，窄根 / 宽身 / 尖端收拢，边缘向前包卷；顶点色做根部压暗 */
+function petalGeo(o = {}){
+  const segU = o.segU || 6, segV = o.segV || 10;
+  const W = o.width || 0.95, L = o.len || 1.0;
+  const cup = o.cup === undefined ? 0.7 : o.cup;
+  const bend = o.bend === undefined ? 0.22 : o.bend;
+  const tip = o.tip === undefined ? 0.18 : o.tip;
+  const ridge = o.ridge === undefined ? 0 : o.ridge;
+  const pos = [], uvs = [], cols = [], idx = [];
+  for (let i = 0; i <= segV; i++){
+    const v = i / segV;
+    // 奶油花瓣：宽而圆钝的顶端，不是尖三角
+    const sN = v < 0.60 ? v / 0.60 : 1 - (v - 0.60) / 0.40 * 0.34;
+    const hw = 0.5 * (0.34 + 0.66 * Math.pow(clamp(sN, 0, 1), 0.55));
+    for (let j = 0; j <= segU; j++){
+      const u = -1 + 2 * j / segU;
+      const x = u * hw * W;
+      const y = v * L;
+      let z = cup * (1 - Math.cos(u * Math.PI * 0.5)) - bend * v * v + tip * u * u * v * v
+            + ridge * Math.sin(u * Math.PI * 2.3) * Math.pow(v, 2.0);
+      pos.push(x, y, z);
+      uvs.push((u + 1) * 0.5, v);
+      // 根部压暗、瓣尖提亮，模拟奶油堆叠的明暗
+      const shade = 0.70 + 0.30 * Math.pow(v, 0.55) - 0.05 * u * u;
+      cols.push(shade, shade * 0.995, shade * 0.997);
+    }
+  }
+  for (let i = 0; i < segV; i++){
+    for (let j = 0; j < segU; j++){
+      const a = i * (segU + 1) + j, b = a + 1, c = a + segU + 1, d = c + 1;
+      idx.push(a, b, c, b, d, c);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  return g;
+}
+
+const PETAL_OUT = petalGeo({ segU: 9, segV: 16, width: 0.74, len: 0.72, cup: 1.12, bend: 0.09, tip: 0.05, ridge: 0.05 });
+const PETAL_IN  = petalGeo({ segU: 8, segV: 14, width: 0.50, len: 0.72, cup: 1.00, bend: 0.04, tip: 0.02, ridge: 0.03 });
+const LEAF_GEO  = petalGeo({ segU: 6, segV: 12, width: 0.42, len: 1.0, cup: 0.22, bend: 0.06, tip: 0.0 });
+
+/* 五角星形状 */
+function starShape(outer = 0.5, inner = 0.21, points = 5){
+  const s = new THREE.Shape();
+  for (let i = 0; i < points * 2; i++){
+    const r = i % 2 ? inner : outer;
+    const a = -Math.PI / 2 + i * Math.PI / points;
+    const x = Math.cos(a) * r, y = Math.sin(a) * r;
+    if (i === 0) s.moveTo(x, y); else s.lineTo(x, y);
+  }
+  s.closePath();
+  return s;
+}
+function starGeo(outer = 0.5, depth = 0.055){
+  const g = new THREE.ExtrudeGeometry(starShape(outer, outer * 0.42), {
+    depth, bevelEnabled: true, bevelSize: outer * 0.06, bevelThickness: outer * 0.06,
+    bevelSegments: 2, curveSegments: 2
+  });
+  g.center();
+  return g;
+}
+
+/* 极坐标圆盘（用于糖浆湖面） */
+function discGeo(radius, rings, segs){
+  const pos = [0, 0, 0], uvs = [0.5, 0.5], idx = [];
+  for (let i = 1; i <= rings; i++){
+    const r = radius * i / rings;
+    for (let j = 0; j < segs; j++){
+      const a = j / segs * Math.PI * 2;
+      pos.push(Math.cos(a) * r, 0, Math.sin(a) * r);
+      uvs.push(0.5 + Math.cos(a) * 0.5 * i / rings, 0.5 + Math.sin(a) * 0.5 * i / rings);
+    }
+  }
+  for (let j = 0; j < segs; j++){
+    const a = 1 + j, b = 1 + (j + 1) % segs;
+    idx.push(0, b, a);
+  }
+  for (let i = 0; i < rings - 1; i++){
+    const s0 = 1 + i * segs, s1 = 1 + (i + 1) * segs;
+    for (let j = 0; j < segs; j++){
+      const jn = (j + 1) % segs;
+      const a = s0 + j, b = s0 + jn, c = s1 + j, d = s1 + jn;
+      idx.push(a, b, c, b, d, c);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  return g;
+}
+
+/* ============================================================
+   4. 部件构建
+   ============================================================ */
+const cakeRoot = new THREE.Group();
+scene.add(cakeRoot);
+
+/* ---------- 4.1 白瓷盘 ---------- */
+function buildPlate(){
+  const g = new THREE.Group();
+  const prof = [
+    [0.00, 0.09], [2.72, 0.09], [3.02, 0.13], [3.28, 0.23],
+    [3.35, 0.33], [3.26, 0.385], [3.00, 0.35], [2.50, 0.275], [0.00, 0.255]
+  ].map(p => new THREE.Vector2(p[0], p[1]));
+  const plate = new THREE.Mesh(new THREE.LatheGeometry(prof, 110), M.plate());
+  plate.castShadow = true; plate.receiveShadow = true;
+  g.add(plate);
+
+  // 蛋糕垫板
+  const board = new THREE.Mesh(
+    new THREE.CylinderGeometry(2.30, 2.30, 0.05, 96),
+    new THREE.MeshPhysicalMaterial({ color: 0xfffbf8, roughness: 0.4, clearcoat: 0.4, clearcoatRoughness: 0.35 })
+  );
+  board.position.y = 0.285; board.castShadow = true; board.receiveShadow = true;
+  g.add(board);
+  return g;
+}
+
+/* ---------- 4.2 蛋糕层 ---------- */
+function buildLayer(i){
+  const sideTex = baseGradient.clone();
+  sideTex.needsUpdate = true;
+  sideTex.repeat.set(1, 1 / 3);
+  sideTex.offset.set(0, i / 3);
+  sideTex.wrapS = sideTex.wrapT = THREE.ClampToEdgeWrapping;
+
+  const sideMat = M.cake(sideTex);
+  const capMat = M.crumb();
+  const botMat = M.crumb();
+
+  const geo = new THREE.CylinderGeometry(R, R, LAYER_H, 192, 1, false);
+  const mesh = new THREE.Mesh(geo, [sideMat, capMat, botMat]);
+  mesh.castShadow = true; mesh.receiveShadow = true;
+
+  const g = new THREE.Group();
+  g.position.y = CAKE_BOT + LAYER_H * i + LAYER_H / 2;
+  g.add(mesh);
+  return g;
+}
+
+/* ---------- 4.3 糖浆湖面 ---------- */
+let lakeGeo = null, lakeBase = null;
+function buildLake(){
+  const g = new THREE.Group();
+  const geo = discGeo(1.87, 22, 96);
+  lakeGeo = geo;
+  lakeBase = Float32Array.from(geo.attributes.position.array);
+  const mesh = new THREE.Mesh(geo, M.lake());
+  mesh.receiveShadow = true;
+  g.position.y = LAKE_Y;
+  g.add(mesh);
+
+  // 湖面边缘一圈浅色糖霜
+  const lip = new THREE.Mesh(new THREE.TorusGeometry(1.88, 0.028, 8, 140), M.cream());
+  lip.rotation.x = -Math.PI / 2; lip.position.y = -0.006;
+  g.add(lip);
+  return g;
+}
+function updateLake(t){
+  if (!lakeGeo) return;
+  const pos = lakeGeo.attributes.position, arr = pos.array;
+  for (let i = 0; i < pos.count; i++){
+    const x = lakeBase[i * 3], z = lakeBase[i * 3 + 2];
+    const r = Math.sqrt(x * x + z * z);
+    arr[i * 3 + 1] =
+      0.011 * Math.sin(r * 4.0 - t * 1.5) +
+      0.006 * Math.sin(x * 3.1 + t * 1.05) +
+      0.005 * Math.cos(z * 3.7 - t * 0.85);
+  }
+  pos.needsUpdate = true;
+  lakeGeo.computeVertexNormals();
+}
+
+/* ---------- 4.4 奶油波浪边 ---------- */
+/* 用样条把 8 个控制点细分成 30 段，消除分段的硬折线 */
+function resampleProfile(pts, n){
+  const curve = new THREE.SplineCurve(pts.map(p => new THREE.Vector2(p[0], p[1])));
+  return curve.getPoints(n - 1).map(v => [v.x, v.y]);
+}
+/* 一枚裱花小奶油球（带个小尖） */
+let DOLLOP = null;
+function dollopGeo(){
+  if (DOLLOP) return DOLLOP;
+  const items = [
+    { geo: new THREE.SphereGeometry(1, 18, 12),
+      matrix: new THREE.Matrix4().makeTranslation(0, 0.032, 0)
+        .multiply(new THREE.Matrix4().makeScale(0.058, 0.042, 0.058)) },
+    { geo: new THREE.ConeGeometry(1, 1, 16),
+      matrix: new THREE.Matrix4().makeTranslation(0, 0.070, 0)
+        .multiply(new THREE.Matrix4().makeRotationZ(0.18))
+        .multiply(new THREE.Matrix4().makeScale(0.021, 0.048, 0.021)) }
+  ];
+  DOLLOP = mergeGeos(items);
+  return DOLLOP;
+}
+function buildCream(){
+  const g = new THREE.Group();
+  const segs = 240;
+  const prof = resampleProfile([
+    [0.030, 0.000], [0.090, 0.085], [0.116, 0.185], [0.078, 0.295],
+    [0.004, 0.375], [-0.088, 0.430], [-0.172, 0.428], [-0.214, 0.372]
+  ], 30).map(p => [p[0], p[1] * 0.80]);
+  const rows = prof.length;
+  const pos = [], uvs = [], idx = [];
+  const yBase = 1.77;
+  for (let i = 0; i < rows; i++){
+    const f = i / (rows - 1);
+    for (let j = 0; j < segs; j++){
+      const a = j / segs * Math.PI * 2;
+      const peak = 1 + 0.30 * Math.sin(a * 11 + 0.4) + 0.16 * Math.sin(a * 19 + 1.9) + 0.07 * Math.sin(a * 31 + 2.6);
+      // 抹刀留下的细密竖纹
+      const grain = 0.0035 * Math.sin(a * 47 + f * 5.0) * Math.sin(f * Math.PI);
+      const r = R + prof[i][0] + grain;
+      const y = yBase + prof[i][1] * peak * 1.02 + 0.003 * Math.sin(a * 33 + f * 2.0);
+      pos.push(Math.cos(a) * r, y, Math.sin(a) * r);
+      uvs.push(j / segs, f);
+    }
+  }
+  for (let i = 0; i < rows - 1; i++){
+    for (let j = 0; j < segs; j++){
+      const jn = (j + 1) % segs;
+      const a = i * segs + j, b = i * segs + jn;
+      const c = (i + 1) * segs + j, d = (i + 1) * segs + jn;
+      idx.push(a, c, b, b, c, d);
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+
+  const wave = new THREE.Mesh(geo, M.cream());
+  wave.castShadow = true; wave.receiveShadow = true;
+  g.add(wave);
+
+  /* 湖面外沿一圈裱花奶油球，把糖浆框起来 */
+  const dGeo = dollopGeo();
+  const N = 58;
+  const items = [];
+  for (let i = 0; i < N; i++){
+    const a = i / N * Math.PI * 2;
+    const rad = 1.895;
+    const M4 = new THREE.Matrix4()
+      .makeRotationY(a)
+      .multiply(new THREE.Matrix4().makeTranslation(0, LAKE_Y + 0.002 + Math.sin(i * 2.1) * 0.003, rad))
+      .multiply(new THREE.Matrix4().makeRotationX(-0.12))
+      .multiply(new THREE.Matrix4().makeRotationY(rr(-0.25, 0.25)))
+      .multiply(new THREE.Matrix4().makeScale(rr(0.60, 0.74), rr(0.55, 0.72), rr(0.60, 0.74)));
+    items.push({ geo: dGeo, matrix: M4 });
+  }
+  const ring = new THREE.Mesh(mergeGeos(items), M.cream());
+  ring.castShadow = true; ring.receiveShadow = true;
+  g.add(ring);
+  return g;
+}
+
+/* ---------- 4.5 玫瑰（黄金角螺旋排列的奶油玫瑰） ---------- */
+function buildRose(scale){
+  /* 裱花螺旋：一条有厚度的奶油带由内向外盘旋，上沿起伏成花瓣边 */
+  const turns = 3.15, N = 132, MS = 8;
+  const segU = MS, segV = N, nx = segU + 1;
+  const pos = [], uvs = [], cols = [], idx = [];
+  for (let i = 0; i <= segV; i++){
+    const s = i / segV;
+    const th = s * turns * Math.PI * 2;
+    const r = 0.022 + 0.212 * Math.pow(s, 0.78);
+    const baseY = 0.008 + 0.150 * Math.pow(1 - s, 2.1);
+    const h = (0.250 - 0.080 * s) * (1 + 0.27 * Math.sin(th * 5.2 + 0.6) + 0.09 * Math.sin(th * 11.0));
+    for (let j = 0; j <= segU; j++){
+      const v = j / segU;
+      const rw = r + 0.26 * Math.pow(v, 2.1) - 0.075 * Math.pow(Math.max(0, v - 0.82) / 0.18, 2);
+      const wob = 0.006 * Math.sin(th * 6.0 + v * 3.0);
+      pos.push(Math.cos(th) * (rw + wob), baseY + h * v, Math.sin(th) * (rw + wob));
+      uvs.push(v, s);
+      const shade = 0.60 + 0.40 * Math.pow(v, 0.85) + 0.05 * Math.sin(th * 5.2);
+      cols.push(shade, shade * 0.99, shade * 0.995);
+    }
+  }
+  for (let i = 0; i < segV; i++){
+    for (let j = 0; j < segU; j++){
+      const a = i * nx + j, b = a + 1, c = a + nx, d = c + 1;
+      idx.push(a, b, c, b, d, c);
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+
+  const g = new THREE.Group();
+  const mesh = new THREE.Mesh(solidifyGrid(geo, segU, segV, 0.050), M.rose());
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  g.add(mesh);
+
+  /* 中心的小鼓包，堵住螺旋中心的空洞 */
+  const coreMat = M.rose();
+  coreMat.vertexColors = false;          // 球体没有颜色属性，关掉顶点色避免发黑
+  const core = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), coreMat);
+  core.scale.set(0.120, 0.175, 0.120);
+  core.position.y = 0.170;
+  core.castShadow = true;
+  g.add(core);
+
+  g.scale.setScalar(scale);
+  return g;
+}
+
+function buildRoses(){
+  const g = new THREE.Group();
+  const spots = [];
+  const N = 14;
+  for (let i = 0; i < N; i++){
+    const a = i / N * Math.PI * 2 + 0.22;
+    spots.push({
+      a, r: R + 0.30 + rr(-0.04, 0.05), y: 0.33 + Math.sin(i * 2.3) * 0.05,
+      s: 0.80 + Math.abs(Math.sin(i * 1.9)) * 0.14, tilt: rr(-0.05, 0.08)
+    });
+  }
+  // 爬在左后侧顶部的三朵（贴墙，略微向外倾）
+  spots.push({ a: 2.55, r: R + 0.06, y: 1.16, s: 0.56, tilt: 0.34 });
+  spots.push({ a: 2.95, r: R + 0.02, y: 1.36, s: 0.48, tilt: 0.28 });
+  spots.push({ a: 2.22, r: R + 0.10, y: 0.96, s: 0.54, tilt: 0.24 });
+
+  for (const sp of spots){
+    const holder = new THREE.Group();
+    holder.position.set(Math.sin(sp.a) * sp.r, sp.y, Math.cos(sp.a) * sp.r);
+    holder.rotation.y = sp.a + rr(-0.2, 0.2);
+    const inner = buildRose(sp.s);
+    inner.rotation.x = sp.tilt;
+    holder.add(inner);
+    g.add(holder);
+  }
+
+  return g;
+}
+
+/* ---------- 4.6 金箔星 ---------- */
+function buildStars(){
+  const g = new THREE.Group();
+  const geoSmall = starGeo(0.115);
+  const geoBig = starGeo(0.165);
+  const spots = [
+    [0.35, 0.95], [1.45, 0.68], [2.30, 1.18], [3.35, 0.86],
+    [4.15, 1.35], [5.05, 0.72], [5.75, 1.10], [0.95, 1.42]
+  ];
+  spots.forEach(([a, y], i) => {
+    const big = i % 3 === 0;
+    /* 大星面积大、更容易糊成白块，自发光比小星还低一档 */
+    const m = new THREE.Mesh(big ? geoBig : geoSmall, M.gold(big ? 0.95 : 0.72));
+    m.position.set(Math.sin(a) * (R + 0.035), y, Math.cos(a) * (R + 0.035));
+    m.rotation.y = Math.PI / 2 - a;
+    m.rotation.z = rr(-0.35, 0.35);
+    m.castShadow = true;
+    g.add(m);
+  });
+  return g;
+}
+
+/* ---------- 4.7 糖珠 ---------- */
+function buildPearls(){
+  const g = new THREE.Group();
+  const count = 210;
+  const geo = new THREE.SphereGeometry(1, 14, 10);
+  const mesh = new THREE.InstancedMesh(geo, M.pearl(), count);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
+  const v = new THREE.Vector3(), s = new THREE.Vector3();
+  const e = new THREE.Euler();
+  for (let i = 0; i < count; i++){
+    const a = rnd() * Math.PI * 2;
+    const rad = R * 0.95 + Math.pow(rnd(), 0.7) * 0.58;
+    const y = 0.30 + rnd() * 0.09 + (rad > R ? 0.01 : 0.05);
+    v.set(Math.sin(a) * rad, y, Math.cos(a) * rad);
+    const k = rr(0.030, 0.066);
+    s.set(k, k * rr(0.86, 1.0), k);
+    e.set(rr(0, 3.14), rr(0, 3.14), rr(0, 3.14));
+    q.setFromEuler(e);
+    m4.compose(v, q, s);
+    mesh.setMatrixAt(i, m4);
+  }
+  mesh.instanceMatrix.needsUpdate = true;
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  g.add(mesh);
+  return g;
+}
+
+/* ---------- 4.8 月亮帆船 ---------- */
+function crescentShape(){
+  const d2r = d => d * Math.PI / 180;
+  const s = new THREE.Shape();
+  s.absarc(0, 0, 0.56, d2r(62.8), d2r(297.2), false);
+  s.absarc(0.30, 0, 0.50, d2r(265), d2r(95), true);
+  return s;
+}
+
+function buildMoon(){
+  const g = new THREE.Group();
+
+  /* 月牙 */
+  const moonGeo = new THREE.ExtrudeGeometry(crescentShape(), {
+    depth: 0.085, bevelEnabled: true, bevelSize: 0.012,
+    bevelThickness: 0.012, bevelSegments: 2, curveSegments: 48
+  });
+  moonGeo.center();
+  const moon = new THREE.Mesh(moonGeo, M.moonWhite());
+  moon.rotation.set(0, 0.18, -0.10);
+  moon.castShadow = true; moon.receiveShadow = true;
+  g.add(moon);
+
+  /* 顶端金星（挂在月牙上端的尖角，随月牙一起转）—— 全场景最大的星，夜里由它当光源 */
+  const topStar = new THREE.Mesh(starGeo(0.105), M.gold(1.55));
+  topStar.position.set(0.405, 0.500, 0.055);
+  topStar.rotation.z = 0.3;
+  topStar.castShadow = true;
+  moon.add(topStar);
+
+  /* 月面上散落的小金星：面积极小，自发光收得更狠，否则一关灯就是一排白点 */
+  const tiny = starGeo(0.036);
+  [[-0.095, 0.35], [-0.206, 0.15], [-0.218, -0.10], [-0.120, -0.32], [0.044, 0.46]].forEach(([x, y]) => {
+    const m = new THREE.Mesh(tiny, M.gold(0.5));
+    m.position.set(x, y, 0.062);
+    m.rotation.z = rr(0, 3);
+    moon.add(m);
+  });
+
+  /* 小船 */
+  const boat = new THREE.Group();
+  const hull = new THREE.Mesh(
+    new THREE.SphereGeometry(0.5, 28, 14, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2),
+    M.boat()
+  );
+  hull.scale.set(1.06, 0.80, 0.46);
+  hull.castShadow = true;
+  boat.add(hull);
+
+  const rimT = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.014, 8, 56), M.boat());
+  rimT.rotation.x = -Math.PI / 2;
+  rimT.scale.set(1.06, 0.44, 1);
+  boat.add(rimT);
+
+  // 船舱里的金色小星
+  const cargo = new THREE.Mesh(starGeo(0.055), M.gold(0.8));
+  cargo.position.set(0.05, 0.02, 0);
+  boat.add(cargo);
+
+  boat.position.set(-0.02, -0.30, 0.10);
+  boat.rotation.y = 0.12;
+  g.add(boat);
+
+  /* 吊链：从月牙内侧垂到船舷 */
+  const chainMat = M.gold(0.45);
+  [[-0.02, 0.02], [0.10, -0.06]].forEach(([ox, oz]) => {
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(ox, 0.22, 0.10),
+      new THREE.Vector3(ox + 0.03, 0.02, 0.12),
+      new THREE.Vector3(ox + 0.02, -0.16, 0.11),
+      new THREE.Vector3(ox, -0.28, 0.09)
+    ]);
+    const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 12, 0.006, 5, false), chainMat);
+    g.add(tube);
+  });
+
+  g.scale.setScalar(1.26);
+  g.position.set(-0.10, LAKE_Y + 0.72, -0.12);
+  g.userData.topStar = topStar;      // 夜间光源挂在这颗大星上
+  return g;
+}
+
+/* ============================================================
+   5. 组装 + 部件注册
+   ============================================================ */
+const parts = [];
+const pickables = [];
+
+function eachMat(mesh, fn){
+  const m = mesh.material;
+  if (Array.isArray(m)) m.forEach(fn); else if (m) fn(m);
+}
+
+function registerPart(id, name, desc, root, opt = {}){
+  /* listed:false —— 仍然作为场景里的底座参与虚化，但不进部件表、不可拾取、不解体 */
+  const listed = opt.listed !== false;
+  root.traverse(o => {
+    if (!o.isMesh) return;
+    o.userData.partId = id;
+    if (listed) pickables.push(o);
+    if (Array.isArray(o.material)) o.material = o.material.map(m => m.clone());
+    else if (o.material) o.material = o.material.clone();
+    eachMat(o, m => {
+      if (m.emissive){
+        m.userData.baseEmissive = m.emissive.getHex();
+        m.userData.baseEI = m.emissiveIntensity;
+      }
+      if (m.color) m.userData.baseColor = m.color.getHex();
+      if (m.envMapIntensity !== undefined) m.userData.baseEnv = m.envMapIntensity;
+    });
+  });
+
+  const part = {
+    id, name, desc, note: opt.note || '', tech: opt.tech || '', listed,
+    root,
+    home: root.position.clone(),
+    homeQ: root.quaternion.clone(),
+    homeScale: root.scale.clone(),
+    off: new THREE.Vector3().fromArray(opt.off || [0, 0, 0]),
+    spinAxis: opt.spin ? new THREE.Vector3(...opt.spin[0]) : null,
+    spinAmt: opt.spin ? opt.spin[1] : 0,
+    anchor: new THREE.Vector3().fromArray(opt.anchor || [0, 0.6, 0]),
+    p: 0, on: false,
+    delay: 0,                      // 错峰：越靠上的部件越先脱离
+    dim: 0, appDim: -1, appF: -1,
+    glowOff: new THREE.Vector3(), glowR: 1,
+    phase: rr(0, 6.28),
+    meshes: [],
+    mats: [],
+    kids: []
+  };
+  root.traverse(o => {
+    if (!o.isMesh) return;
+    part.meshes.push(o);
+    o.userData.baseCast = o.castShadow;
+    eachMat(o, m => { if (part.mats.indexOf(m) < 0) part.mats.push(m); });
+  });
+
+  /* 子对象沿半径散开 —— 约束：只沿"自己的法向"离开，不随便乱飞。
+     tilt 让立面件绕切向轴向外倾倒（玫瑰顺着花枝倒），rise 做高度错落；
+     贴面的金箔星不带 tilt，只按剥离方向平移，保持"贴片"的性质。 */
+  if (opt.spread){
+    root.children.forEach(ch => {
+      const d = ch.position.clone();
+      d.y = 0;
+      if (d.lengthSq() < 1e-6) d.set(1, 0, 0);
+      d.normalize();
+      part.kids.push({
+        o: ch,
+        home: ch.position.clone(),
+        homeQ: ch.quaternion.clone(),
+        dir: d,                                   // 径向：从蛋糕壁朝外
+        amt: opt.spread * rr(0.82, 1.18),
+        tilt: (opt.tilt || 0) * rr(0.7, 1.3),
+        rise: (opt.rise || 0) * rr(-0.5, 1.0)
+      });
+    });
+  }
+
+  cakeRoot.add(root);
+  parts.push(part);
+  return part;
+}
+
+/* --- 逐个装配 --- */
+/* 白瓷盘只当作底座：不进部件表、不可单独取出，但聚焦别的部件时仍会被一起虚化 */
+const partPlate = registerPart('plate', '白瓷盘', '承托整座蛋糕的骨瓷盘', buildPlate(),
+  { listed: false, off: [0, -1.15, 0], anchor: [2.20, 0.06, 2.20],
+    tech: 'LatheGeometry 车削 110 段 · 双层清漆釉面' });
+
+const layers = [0, 1, 2].map(i => buildLayer(i));
+const layerNames = ['蛋糕底层', '蛋糕中层', '蛋糕顶层'];
+const layerDesc = ['最厚的一层，粉色最浓', '粉白渐变的过渡层', '顶层的纯白奶油面'];
+const layerNote = [
+  '所有重量都压在这里，所以它最安静。',
+  '颜色在这一层开始变浅，像话说到一半，声音低下去。',
+  '它只负责承住上面那一小片湖。'
+];
+const layerTech = [
+  'Cylinder 192 径向段 · 抹刀法线 + 粗糙度扰动',
+  '同一渐变贴图按 1/3 分段取色 · 侧壁接缝对齐',
+  '切片面用锥形海绵法线 · 顶面纯白裱糊'
+];
+const layerOff = [[0, -0.70, 0], [0, 0.18, 0], [0, 1.00, 0]];
+const partLayers = layers.map((g, i) =>
+  registerPart('layer' + i, layerNames[i], layerDesc[i], g,
+    { off: layerOff[i], anchor: [0, 0.0, 2.50], tech: layerTech[i], note: layerNote[i] }));
+
+const partLake = registerPart('lake', '糖浆湖面', '会缓慢起伏的镜面糖浆', buildLake(),
+  { off: [0, 1.55, 0], anchor: [0, 0.04, 1.45],
+    tech: '极坐标圆盘 96 段 · 顶点级水波动画 + 清漆',
+    note: '倒进去的时候是平的，现在它会自己呼吸。' });
+
+const partCream = registerPart('cream', '奶油波浪边', '手抹奶油堆出的起伏花边', buildCream(),
+  { off: [0, 2.05, 0], anchor: [0, 2.10, 2.30],
+    tech: '样条重采样 30 段 × 240 径向分段 · 58 枚裱花球',
+    note: '抹刀停了以后，它还在往同一个方向流。' });
+
+const partRoses = registerPart('roses', '玫瑰花丛', '十四朵手工裱出来的粉玫瑰', buildRoses(),
+  { off: [0, 0.95, 0], spread: 0.35, tilt: 0.40, rise: 0.25, anchor: [0, 0.85, 2.55],
+    tech: '裱花螺旋带 132 段 × 8 段 · 固化成壳 + 绒面 sheen',
+    note: '每朵都不一样，因为手不会重复自己。' });
+
+const partStars = registerPart('stars', '金箔星', '贴在侧面、会反光的金箔五角星', buildStars(),
+  { off: [0, 0.75, 0], spread: 0.45, rise: 0.12, anchor: [0, 0.90, 2.20],
+    tech: 'ExtrudeGeometry 五角星 · 金属度 1 + 皱褶法线',
+    note: '它们不发光，只是把灯的光还给你。' });
+
+/* 糖珠原本是往下沉 0.40，会直接穿过瓷盘；改成沿盘面法线向上脱开，
+   正好落在底层蛋糕让出的空档里（0.22 ~ 1.10），不与任何一层相撞 */
+const partPearls = registerPart('pearls', '糖珠', '裙边散落的珍珠糖', buildPearls(),
+  { off: [0, 0.45, 0], anchor: [0, 0.30, 2.75],
+    tech: 'InstancedMesh 210 例 · 虹彩薄膜 + 彩虹干涉',
+    note: '两百一十颗，散得像随手一撒，其实每颗都算过位置。' });
+
+const partMoon = registerPart('moon', '月亮帆船', '月亮做帆、小舟作岸的装饰件', buildMoon(),
+  { off: [0, 3.05, 0], spin: [[0, 1, 0], 0.5], anchor: [0, 0.55, 0],
+    tech: '月牙双圆弧 extrude · 半球船壳 + 曲线吊链',
+    note: '全场唯一不打灯的东西——它自己就是灯。' });
+
+/* 真正列进"部件表"的部件：白瓷盘只算底座，不在此列 */
+const listedParts = parts.filter(p => p.listed);
+
+/* ============================================================
+   5.5 开场：不透明的蛋糕盒
+   ------------------------------------------------------------
+   一个罩住整座蛋糕的方形礼盒。要连点 3~5 下才开：
+   每一下盒子抖一抖、盖子被顶起一点、接缝里漏出光；
+   最后一下整盒炸开 —— 四面墙向外倒、盖子飞走、纸屑四散、
+   「生日快乐」浮出来，蛋糕才从里面长出来。
+   盒子单独挂在 scene 上（不能挂 cakeRoot，那里会被入场缩放带着走）。
+   ============================================================ */
+const gift = {
+  root: new THREE.Group(),
+  need: 3 + Math.floor(Math.random() * 3),   // 3~5 下，每次的手感都不一样
+  taps: 0,
+  shake: 0,        // 点击后的抖动，1 → 0
+  pop: 0,          // 盖子"被顶一下"的瞬时弹跳
+  lift: 0,         // 点击累积的抬升 0 → 1
+  burstT: 0,       // 爆开进度 0 → 1
+  bursting: false,
+  done: false,
+  cakeIn: false,   // 蛋糕开始从盒子里长出来
+  wished: false,
+  fadeOn: false,
+  walls: [],
+  seams: [],
+  cap: null,
+  capY0: 0,
+  mats: [],
+  glow: null,
+  conf: null,
+  W: 6, D: 6, H: 4, capH: 0.36,
+  centerY: 1.6
+};
+
+(function buildGift(){
+  /* 盒子尺寸直接量蛋糕的实际包围盒 —— 以后改蛋糕不用回来调参数 */
+  cakeRoot.updateWorldMatrix(true, true);
+  const bb = new THREE.Box3().setFromObject(cakeRoot);
+  const halfX = Math.max(1.1, Math.abs(bb.min.x), Math.abs(bb.max.x));
+  const halfZ = Math.max(1.1, Math.abs(bb.min.z), Math.abs(bb.max.z));
+  const topY  = Math.max(2.2, bb.max.y);
+  const W = halfX * 2 + 0.66;
+  const D = halfZ * 2 + 0.66;
+  const H = topY + 0.18;
+  const capH = 0.36;
+  gift.W = W; gift.D = D; gift.H = H; gift.capH = capH;
+  gift.centerY = H * 0.56;
+
+  /* 纸盒：完全哑光的浅粉卡纸，靠一点极淡的法线给出"有纤维"的手感 */
+  const matPaper = new THREE.MeshStandardMaterial({
+    color: 0xdfb3bd, roughness: 0.9, metalness: 0,
+    normalMap: TEX.butterNormal, normalScale: new THREE.Vector2(0.2, 0.2),
+    envMapIntensity: 0.42
+  });
+  const matCap = matPaper.clone();
+  matCap.color.setHex(0xefd2d8);                // 盖子浅一档，才看得出"这是个能揭的东西"
+  /* 缎带：和蛋糕上的金箔呼应，但不发亮，是软金属的那种哑光 */
+  const matRib = new THREE.MeshPhysicalMaterial({
+    color: 0xd7a44f, roughness: 0.34, metalness: 0.22,
+    clearcoat: 0.6, clearcoatRoughness: 0.3,
+    sheen: 0.65, sheenColor: new THREE.Color(0xffe8b6),
+    envMapIntensity: 1.1
+  });
+  gift.mats = [matPaper, matCap, matRib];
+  /* 盖子和墙要分别淡出：盖子飞走后必须赶紧消失，否则会横在镜头前面，
+     而墙得慢慢倒完才收 —— 共用一份材质做不到这件事 */
+  const matRibCap = matRib.clone();
+  gift.capMats = [matCap, matRibCap];
+  gift.wallMats = [matPaper, matRib];
+  /* 淡出前要统一把 transparent 打开，这里漏一个就会"淡不掉"（金缎带最容易漏） */
+  gift.mats.push(matRibCap);
+
+  /* 四面墙：pivot 在底边中点，绕它向外倒下去，像花瓣张开 */
+  const wallDefs = [
+    { yaw: 0,             w: W, z: D / 2 },
+    { yaw: Math.PI,       w: W, z: D / 2 },
+    { yaw: Math.PI / 2,   w: D, z: W / 2 },
+    { yaw: -Math.PI / 2,  w: D, z: W / 2 }
+  ];
+  wallDefs.forEach(def => {
+    const geo = new THREE.BoxGeometry(def.w, H, 0.06);
+    geo.translate(0, H / 2, 0);                 // 底边落到原点
+    const pivot = new THREE.Group();
+    pivot.rotation.order = 'YXZ';               // 先定朝向，再绕局部 X 倒
+    pivot.rotation.y = def.yaw;
+    const panel = new THREE.Mesh(geo, matPaper);
+    panel.position.z = def.z;
+    panel.castShadow = true;
+    panel.receiveShadow = true;
+    /* 墙上的竖缎带跟着这面墙一起倒 */
+    const rib = new THREE.Mesh(new THREE.BoxGeometry(0.52, H - 0.05, 0.018), matRib);
+    rib.position.set(0, H / 2 - 0.02, 0.039);
+    panel.add(rib);
+    /* 墙顶一条发光线：盖子被顶起来时，光就从这条缝里漏出来 */
+    const seam = new THREE.Mesh(
+      new THREE.PlaneGeometry(def.w - 0.03, 0.055),
+      new THREE.MeshBasicMaterial({
+        color: 0xffb03a, transparent: true, opacity: 0,
+        depthWrite: false, toneMapped: false, side: THREE.DoubleSide
+      })
+    );
+    seam.position.set(0, H - 0.026, 0.0335);
+    panel.add(seam);
+    gift.seams.push(seam);
+    pivot.add(panel);
+    gift.root.add(pivot);
+    gift.walls.push({
+      pivot, panel,
+      dir: new THREE.Vector3(Math.sin(def.yaw), 0, Math.cos(def.yaw)),
+      tilt: 1.12 + rr(-0.06, 0.08)              // 张到 65° 左右就散，不摊平在地上
+    });
+  });
+
+  /* 底板：倒的时候不动，跟着一起淡出 */
+  const base = new THREE.Mesh(new THREE.BoxGeometry(W, 0.07, D), matPaper);
+  base.position.y = 0.035;
+  base.castShadow = true;
+  base.receiveShadow = true;
+  gift.root.add(base);
+
+  /* 盒盖 */
+  const cap = new THREE.Group();
+  const shell = new THREE.Mesh(new THREE.BoxGeometry(W + 0.06, capH, D + 0.06), matCap);
+  shell.castShadow = true;
+  cap.add(shell);
+  const rb1 = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.016, D + 0.12), matRibCap);
+  rb1.position.y = capH / 2 + 0.009;
+  const rb2 = new THREE.Mesh(new THREE.BoxGeometry(W + 0.12, 0.016, 0.52), matRibCap);
+  rb2.position.y = capH / 2 + 0.011;            // 错开一点，免得十字处闪面
+  const rs1 = new THREE.Mesh(new THREE.BoxGeometry(0.52, capH, 0.016), matRibCap);
+  rs1.position.z = (D + 0.06) / 2 + 0.009;
+  const rs2 = rs1.clone(); rs2.position.z = -rs1.position.z;
+  const rs3 = new THREE.Mesh(new THREE.BoxGeometry(0.016, capH, 0.52), matRibCap);
+  rs3.position.x = (W + 0.06) / 2 + 0.009;
+  const rs4 = rs3.clone(); rs4.position.x = -rs3.position.x;
+  cap.add(rb1, rb2, rs1, rs2, rs3, rs4);
+
+  /* 蝴蝶结：两个压扁的圆环 + 中间一个结 */
+  /* 蝴蝶结：两个压扁的圆环 + 中间一个结。
+     环先摆成近水平，再由外层 group 绕 Z 把两翼挑起来 —— 这样才是"蝴蝶结"，
+     而不是两个圈套在一起 */
+  const bow = new THREE.Group();
+  const loopGeo = new THREE.TorusGeometry(0.46, 0.115, 8, 24);
+  [-1, 1].forEach(sx => {
+    const wing = new THREE.Group();
+    wing.rotation.z = sx * 0.5;
+    const m = new THREE.Mesh(loopGeo, matRibCap);
+    m.rotation.x = -Math.PI / 2 + 0.42;
+    m.scale.set(1.14, 0.58, 1);
+    m.position.x = sx * 0.44;
+    wing.add(m);
+    bow.add(wing);
+  });
+  const knot = new THREE.Mesh(new THREE.SphereGeometry(0.19, 14, 10), matRibCap);
+  knot.scale.set(1, 0.82, 1);
+  bow.add(knot);
+  bow.position.y = capH / 2 + 0.1;
+  cap.add(bow);
+
+  cap.position.y = H + capH / 2;
+  gift.capY0 = cap.position.y;
+  gift.cap = cap;
+  gift.root.add(cap);
+
+  /* 盖子底下那层"内部透出来的光"：盖被顶起时从缝里露出来 */
+  const glow = new THREE.Mesh(
+    new THREE.PlaneGeometry(W - 0.14, D - 0.14).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({
+      color: 0xffe6bb, transparent: true, opacity: 0,
+      depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false
+    })
+  );
+  glow.position.y = H + 0.006;
+  gift.root.add(glow);
+  gift.glow = glow;
+
+  scene.add(gift.root);
+
+  /* ---- 纸屑 ---- */
+  const CN = 170;
+  const cGeo = new THREE.PlaneGeometry(0.075, 0.15);
+  const cMat = new THREE.MeshStandardMaterial({
+    roughness: 0.58, metalness: 0.14, side: THREE.DoubleSide, envMapIntensity: 0.8
+  });
+  const mesh = new THREE.InstancedMesh(cGeo, cMat, CN);
+  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  mesh.frustumCulled = false;
+  mesh.visible = false;
+  const palette = [0xf7c3d3, 0xfffdfa, 0xf2e2c4, 0xd7a44f, 0xe89ab3, 0xe9d9c2];
+  const col = new THREE.Color();
+  for (let i = 0; i < CN; i++) mesh.setColorAt(i, col.setHex(palette[i % palette.length]));
+  if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  scene.add(mesh);
+
+  const conf = { mesh, n: CN, pos: [], vel: [], rot: [], spin: [], t: 0, live: false };
+  for (let i = 0; i < CN; i++){
+    conf.pos.push(new THREE.Vector3());
+    conf.vel.push(new THREE.Vector3());
+    conf.rot.push(new THREE.Euler());
+    conf.spin.push(new THREE.Vector3());
+  }
+  gift.conf = conf;
+})();
+
+const giftHintEl  = document.getElementById('giftHint');
+const giftHintTxt = giftHintEl.querySelector('.gh-txt');
+const giftDotsEl  = giftHintEl.querySelector('.gh-dots');
+const giftWishEl  = document.getElementById('giftWish');
+
+/* 亮起的小点既报进度，也暗示"还差几下" */
+function paintGiftDots(beat){
+  giftDotsEl.innerHTML = '';
+  for (let i = 0; i < gift.need; i++){
+    const d = document.createElement('i');
+    if (i < gift.taps) d.className = 'on' + (beat && i === gift.taps - 1 ? ' beat' : '');
+    giftDotsEl.appendChild(d);
+  }
+}
+
+function tapGift(){
+  if (gift.done || gift.bursting) return;
+  gift.taps++;
+  gift.shake = 1;
+  gift.pop = 1;
+  gift.lift = Math.min(1, gift.taps / gift.need);
+  paintGiftDots(true);
+  giftHintEl.classList.add('beat');
+  setTimeout(() => giftHintEl.classList.remove('beat'), 260);
+  if (gift.taps === 1) giftHintTxt.textContent = '再轻点几下，盖子就松了';
+  else if (gift.taps < gift.need) giftHintTxt.textContent = '快了…';
+  if (gift.taps >= gift.need) burstGift();
+}
+
+function spawnConfetti(){
+  const g = gift.conf;
+  if (!g) return;
+  const r = Math.min(gift.W, gift.D) * 0.34;
+  for (let i = 0; i < g.n; i++){
+    const a = Math.random() * Math.PI * 2;
+    const rad = Math.random() * r;
+    g.pos[i].set(Math.cos(a) * rad, gift.H - 0.12 + Math.random() * 0.35, Math.sin(a) * rad);
+    const sp = 1.8 + Math.random() * 2.9;
+    g.vel[i].set(Math.cos(a) * sp, 3.0 + Math.random() * 3.7, Math.sin(a) * sp);
+    g.rot[i].set(rr(0, 6.28), rr(0, 6.28), rr(0, 6.28));
+    g.spin[i].set(rr(-9, 9), rr(-9, 9), rr(-9, 9));
+  }
+  g.t = 0; g.live = true; g.mesh.visible = true;
+}
+
+function burstGift(){
+  gift.bursting = true;
+  giftHintEl.style.display = 'none';
+  spawnConfetti();
+}
+
+function showWish(){
+  giftWishEl.classList.add('show');
+  if (gift.frozen) return;                     // 静态定格时别让它自己淡出
+  setTimeout(() => giftWishEl.classList.add('out'), 3100);
+  setTimeout(() => { giftWishEl.classList.remove('show', 'out'); }, 4800);
+}
+
+function finishGift(){
+  if (gift.done) return;
+  gift.done = true;
+  gift.root.visible = false;
+  if (gift.glow) gift.glow.material.opacity = 0;
+  giftHintEl.style.display = 'none';
+  document.body.classList.remove('gift');
+  if (!gift.cakeIn) gift.cakeIn = true;
+  /* 交还给正常取景：giftRadius 是按盒子算的，比蛋糕需要的更远 */
+  if (!userZoomed) orbit.tRadius = fitRadius();
+  orbit.tTarget.y = 1.34;
+  refreshUI();
+}
+
+/* 开场取景：盒子是方的、又正对着看，得按它的对角线留位置，
+   直接套 fitRadius（那个是按蛋糕裁的）会把盒子撑出画面 */
+function giftRadius(){
+  const aspect = window.innerWidth / window.innerHeight;
+  const t = Math.tan(camera.fov * Math.PI / 360);
+  const hw = Math.hypot(gift.W, gift.D) * 0.5 + 0.2;   // 水平半对角线
+  const hh = Math.max(gift.H * 0.66, 2.8);             // 竖向要装下盒身
+  const rV = hh / Math.max(t * 0.80, 0.04);
+  const rH = hw / Math.max(t * aspect * 0.80, 0.04);
+  return clamp(Math.max(rV, rH) * 1.10, 8, 30);
+}
+
+const _confDummy = new THREE.Object3D();
+function updateConfetti(dt){
+  const g = gift.conf;
+  if (!g || !g.live) return;
+  if (gift.frozen){
+    /* 静态截图：把粒子先"预演"0.42 秒再定格，否则全堆在盒口 */
+    if (g.wrote) return;
+    g.wrote = true;
+    for (let i = 0; i < g.n; i++){
+      g.pos[i].addScaledVector(g.vel[i], 0.42);
+      g.vel[i].y -= 7.6 * 0.42;
+    }
+    dt = 0; g.t = 0.42;
+  }
+  g.t += dt;
+  const life = 3.6;
+  for (let i = 0; i < g.n; i++){
+    const v = g.vel[i], p = g.pos[i];
+    v.y -= 7.6 * dt;
+    v.multiplyScalar(0.988);
+    p.addScaledVector(v, dt);
+    if (p.y < 0.04){ p.y = 0.04; v.y *= -0.26; v.x *= 0.62; v.z *= 0.62; }
+    const ro = g.rot[i], sp = g.spin[i];
+    ro.x += sp.x * dt; ro.y += sp.y * dt; ro.z += sp.z * dt;
+    const k = clamp(1 - (g.t - life * 0.62) / (life * 0.38), 0, 1);
+    _confDummy.position.copy(p);
+    _confDummy.rotation.copy(ro);
+    _confDummy.scale.setScalar(Math.max(0.001, k));
+    _confDummy.updateMatrix();
+    g.mesh.setMatrixAt(i, _confDummy.matrix);
+  }
+  g.mesh.instanceMatrix.needsUpdate = true;
+  if (g.t > life){ g.live = false; g.mesh.visible = false; }
+}
+
+function updateGift(dt, t){
+  if (gift.done) return;
+
+  gift.shake = Math.max(0, gift.shake - dt * 3.2);
+  gift.pop   = Math.max(0, gift.pop - dt * 4.6);
+  const j = gift.shake * gift.shake;
+
+  /* 抖动 + 轻微压扁：不用骨骼，整体形变就够"里面在动" */
+  gift.root.position.set(Math.sin(t * 46.7) * 0.06 * j, 0, Math.cos(t * 40.3) * 0.06 * j);
+  gift.root.scale.set(1 - 0.02 * j, 1 + 0.03 * j, 1 - 0.02 * j);
+
+  if (!gift.bursting){
+    gift.cap.position.y = gift.capY0 + gift.lift * 0.14 + gift.pop * 0.16;
+    gift.cap.rotation.z = Math.sin(t * 31) * 0.036 * j;
+    gift.cap.rotation.x = Math.cos(t * 27) * 0.03 * j;
+    const seamA = 0.14 + 0.72 * gift.lift + 0.55 * gift.pop * gift.lift;
+    gift.seams.forEach(s => { s.material.opacity = seamA; });
+    gift.glow.material.opacity = 0.06 + 0.4 * gift.lift + 0.4 * gift.pop * gift.lift;
+    if (!userZoomed) orbit.tRadius = giftRadius();
+    orbit.tTarget.y = gift.centerY;
+    return;
+  }
+
+  /* ---- 爆开 ---- */
+  if (!gift.frozen) gift.burstT = Math.min(1, gift.burstT + dt / 1.7);
+  const b = gift.burstT;
+
+  if (b > 0.02 && !gift.fadeOn){
+    gift.fadeOn = true;                        // 一开始淡出就要先转半透明，否则 opacity 不生效
+    gift.mats.forEach(m => { m.transparent = true; m.needsUpdate = true; });
+  }
+  if (b > 0.03 && !gift.cakeIn) gift.cakeIn = true;
+  if (b > 0.34 && !gift.wished){ gift.wished = true; showWish(); }
+
+  gift.walls.forEach((w, i) => {
+    const d = clamp(b * 2.0 - i * 0.03, 0, 1);
+    const e = 1 - Math.pow(1 - d, 3);
+    w.pivot.rotation.x = e * w.tilt;
+    /* 一边往外飞一边缩下去：盒子是纸板做的，炸开就该碎着散，
+       而不是像四块大匾一样摊在地上挡镜头 */
+    w.pivot.position.copy(w.dir).multiplyScalar(e * 3.0);
+    w.panel.scale.setScalar(1 - e * 0.55);
+  });
+
+  /* 盖子朝"背对镜头"的方向甩出去：不然它飞起来正好横在相机和蛋糕中间 */
+  const ce = 1 - Math.pow(1 - clamp(b * 2.4, 0, 1), 2);
+  gift.cap.position.y = gift.capY0 + ce * 2.4;
+  gift.cap.position.x = -Math.sin(orbit.theta) * ce * 3.0;
+  gift.cap.position.z = -Math.cos(orbit.theta) * ce * 3.0;
+  gift.cap.rotation.z = -ce * 0.9;
+  gift.cap.rotation.x = ce * 0.6;
+  gift.cap.scale.setScalar(1 - ce * 0.5);       // 边飞边缩，收得干净些
+
+  /* 那层"内部透光"只属于开盖前的状态，一炸就得立刻关掉，
+     否则它会变成盖在盒口的一块白板 */
+  gift.glow.material.opacity = 0.85 * Math.max(0, 1 - b * 14);
+  gift.seams.forEach(s => { s.material.opacity = 0.9 * Math.max(0, 1 - b * 8); });
+
+  /* 爆开本来就该是一瞬间：盖子和墙在半秒内全部退干净，
+     只剩运动留下的那个印象，不让它们挡住刚长出来的蛋糕 */
+  gift.capMats.forEach(m => { m.opacity = 1 - clamp((b - 0.02) / 0.18, 0, 1); });
+  gift.wallMats.forEach(m => { m.opacity = 1 - clamp((b - 0.04) / 0.20, 0, 1); });
+
+  /* 蛋糕开始长出来以后，镜头往蛋糕的视点回落 */
+  const back = clamp((b - 0.1) / 0.5, 0, 1);
+  if (!userZoomed){
+    orbit.tRadius = giftRadius() * (1 - 0.06 * back);
+    orbit.tTarget.y = gift.centerY + (1.34 - gift.centerY) * back;
+  }
+
+  if (b >= 0.995 && !gift.frozen) finishGift();
+}
+
+/* ============================================================
+   6. 相机控制
+   ============================================================ */
+const orbit = {
+  theta: 0.72, phi: 1.12, radius: 10.0,
+  tTheta: 0.72, tPhi: 1.12, tRadius: 10.0,
+  target: new THREE.Vector3(0, 1.34, 0), tTarget: new THREE.Vector3(0, 1.34, 0),
+  autoRotate: true, lastInput: performance.now()
+};
+
+/* 依据视口宽高比算出合适的取景距离（透视下近端会被放大，所以按经验系数推） */
+let userZoomed = false;
+function fitRadius(){
+  const aspect = window.innerWidth / window.innerHeight;
+  const t = Math.tan(camera.fov * Math.PI / 360);
+  const ta = Math.max(t * aspect, 0.12);
+  return aspect < 0.85
+    ? clamp(2.0 / (0.80 * ta) + 2.20, 8.5, 18)
+    : clamp(3.15 / (0.80 * ta) + 3.10, 9.0, 20);
+}
+
+function updateCamera(dt){
+  if (orbit.autoRotate && performance.now() - orbit.lastInput > 2200){
+    orbit.tTheta += dt * 0.11;
+  }
+  const k = 1 - Math.exp(-dt * 7);
+  orbit.theta += (orbit.tTheta - orbit.theta) * k;
+  orbit.phi += (orbit.tPhi - orbit.phi) * k;
+  orbit.radius += (orbit.tRadius - orbit.radius) * k;
+  orbit.target.lerp(orbit.tTarget, k);
+
+  const sp = Math.sin(orbit.phi), cp = Math.cos(orbit.phi);
+  camera.position.set(
+    orbit.target.x + orbit.radius * sp * Math.sin(orbit.theta),
+    orbit.target.y + orbit.radius * cp,
+    orbit.target.z + orbit.radius * sp * Math.cos(orbit.theta)
+  );
+  camera.lookAt(orbit.target);
+}
+
+/* ---- 指针交互 ---- */
+const pointers = new Map();
+let moved = 0, downT = 0, pinchStart = 0, pinchedRadius = 0;
+
+function pinchDist(){
+  const a = [...pointers.values()];
+  return Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y);
+}
+const ndc = new THREE.Vector2();
+function toNDC(x, y){
+  const r = canvas.getBoundingClientRect();
+  ndc.set(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1);
+  return ndc;
+}
+
+canvas.addEventListener('pointerdown', e => {
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  /* 某些环境（合成事件、部分触控板）会抛 NotFoundError，不能让它中断后续逻辑 */
+  try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+  orbit.lastInput = performance.now();
+  moved = 0; downT = performance.now();
+  canvas.classList.add('grabbing');
+  if (pointers.size === 2){
+    pinchStart = pinchDist();
+    pinchedRadius = orbit.tRadius;
+  }
+});
+
+canvas.addEventListener('pointermove', e => {
+  if (!pointers.has(e.pointerId)){
+    if (e.pointerType === 'mouse' && gift.done) hoverAt(e.clientX, e.clientY);
+    return;
+  }
+  const prev = pointers.get(e.pointerId);
+  const dx = e.clientX - prev.x, dy = e.clientY - prev.y;
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  moved += Math.abs(dx) + Math.abs(dy);
+  orbit.lastInput = performance.now();
+
+  if (pointers.size === 1){
+    orbit.tTheta -= dx * 0.0062;
+    orbit.tPhi = clamp(orbit.tPhi - dy * 0.0052, 0.42, 1.48);
+  } else if (pointers.size === 2 && pinchStart > 0){
+    orbit.tRadius = clamp(pinchedRadius * pinchStart / pinchDist(), 5.8, 20);
+    userZoomed = true;
+  }
+});
+
+function endPointer(e){
+  if (pointers.size === 1 && moved < 9 && performance.now() - downT < 700){
+    /* 礼盒还没开的时候，点哪儿都是在敲盒子 */
+    if (!gift.done) tapGift();
+    else pickAt(e.clientX, e.clientY);
+  }
+  pointers.delete(e.pointerId);
+  if (pointers.size === 0) canvas.classList.remove('grabbing');
+  pinchStart = 0;
+}
+canvas.addEventListener('pointerup', endPointer);
+canvas.addEventListener('pointercancel', e => { pointers.delete(e.pointerId); canvas.classList.remove('grabbing'); });
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  orbit.tRadius = clamp(orbit.tRadius * (1 + Math.sign(e.deltaY) * 0.085), 5.8, 20);
+  orbit.lastInput = performance.now();
+  userZoomed = true;
+}, { passive: false });
+
+/* ---- 拾取 ---- */
+const raycaster = new THREE.Raycaster();
+function pickPart(x, y){
+  raycaster.setFromCamera(toNDC(x, y), camera);
+  const hits = raycaster.intersectObjects(pickables, false);
+  for (const h of hits){
+    const id = h.object.userData.partId;
+    if (!id) continue;
+    const p = parts.find(q => q.id === id);
+    if (p && p.listed && p.dim < 0.5) return p;   // 已被虚化/隐藏的部件不参与拾取
+  }
+  return null;
+}
+
+let hoverId = null;
+let lastHover = 0;
+function hoverAt(x, y){
+  const now = performance.now();
+  if (now - lastHover < 55) return;
+  lastHover = now;
+  const p = pickPart(x, y);
+  const id = p ? p.id : null;
+  if (id === hoverId) return;
+  if (hoverId){ const old = parts.find(q => q.id === hoverId); if (old) glow(old, false); }
+  hoverId = id;
+  if (p){ glow(p, true); canvas.classList.add('pointing'); }
+  else canvas.classList.remove('pointing');
+}
+function glow(part, on){
+  if (focusPart) return;                 // 聚焦时发光由 applyLook 统一接管
+  part.meshes.forEach(mesh => eachMat(mesh, m => {
+    if (!m.emissive) return;
+    if (on){ m.emissive.setHex(0xff9ec0); m.emissiveIntensity = 0.26; }
+    else { m.emissive.setHex(m.userData.baseEmissive ?? 0x000000); m.emissiveIntensity = m.userData.baseEI ?? 1; }
+  }));
+}
+
+/* ============================================================
+   6.5 聚焦：单件拎出 → 发光 → 其余虚化
+   ============================================================ */
+let focusPart = null;
+let spinBefore = true;
+let focusCamUntil = 0;
+let glowP = 0;
+const glowAnchor = new THREE.Vector3(0, 1, 0);
+
+/* 柔和聚光池：部件后方一团粉白光，只从轮廓外缘透出来 */
+const glowTex = (function(){
+  const S = 256, cv = makeCanvas(S, S), g = cv.getContext('2d');
+  const rg = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+  rg.addColorStop(0.00, 'rgba(255,240,247,0.62)');
+  rg.addColorStop(0.45, 'rgba(255,226,238,0.34)');
+  rg.addColorStop(0.72, 'rgba(255,212,229,0.16)');
+  rg.addColorStop(1.00, 'rgba(255,204,222,0)');
+  g.fillStyle = rg; g.fillRect(0, 0, S, S);
+  const t = new THREE.CanvasTexture(cv);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+})();
+const glowSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+  map: glowTex, transparent: true, depthWrite: false, depthTest: true,
+  opacity: 0, toneMapped: false
+}));
+glowSprite.visible = false;
+glowSprite.renderOrder = 20;
+scene.add(glowSprite);
+
+/* 聚焦补光：跟着相机的柔光，只用来把单独取出的部件"打亮塑形" */
+const focusLight = new THREE.DirectionalLight(0xfff2f6, 0);
+focusLight.position.set(3, 5, 6);
+scene.add(focusLight);
+scene.add(focusLight.target);
+let focusLampP = 0;
+
+/* 部件世界包围球（取景用）：逐网格求包围盒，InstancedMesh 走它自己的实例包围球 */
+const _box = new THREE.Box3(), _box2 = new THREE.Box3(), _sph = new THREE.Sphere(), _sizeV = new THREE.Vector3();
+function partSphere(obj){
+  obj.updateWorldMatrix(true, true);
+  _box.makeEmpty();
+  obj.traverse(o => {
+    if (!o.isMesh) return;
+    if (o.isInstancedMesh){
+      if (!o.boundingSphere) o.computeBoundingSphere();
+      if (o.boundingSphere){
+        _sph.copy(o.boundingSphere).applyMatrix4(o.matrixWorld);
+        const c = _sph.center, r = _sph.radius;
+        _box2.min.set(c.x - r, c.y - r, c.z - r);
+        _box2.max.set(c.x + r, c.y + r, c.z + r);
+        _box.union(_box2);
+      }
+      return;
+    }
+    if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+    _box2.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld);
+    _box.union(_box2);
+  });
+  if (_box.isEmpty()){ _sph.center.set(0, 1, 0); _sph.radius = 1; }
+  else _box.getBoundingSphere(_sph);
+  return _sph;
+}
+
+/* 取景距离：竖屏时水平视角才是瓶颈，取两个方向里更窄的那个来算 */
+function focusFitRadius(r){
+  const halfV = camera.fov * Math.PI / 360;
+  const halfH = Math.atan(Math.tan(halfV) * camera.aspect);
+  return clamp(r / Math.sin(Math.min(halfV, halfH)) * 1.34, 2.4, 30);
+}
+
+const veilEl = document.getElementById('veil');
+const detailEl = document.getElementById('detail');
+
+function toggleFocus(p){
+  if (focusPart === p){ endFocus(); return; }
+  if (!focusPart) spinBefore = orbit.autoRotate;   // 只在真正进入聚焦时记一次
+  focusPart = p;
+
+  parts.forEach(q => setPart(q, q === p));
+
+  // 记下包围球：中心相对 root 的偏移 + 半径（形状不变，之后只需跟位移）
+  const sph = partSphere(p.root);
+  p.glowOff.copy(sph.center).sub(p.root.position);
+  p.glowR = Math.max(sph.radius, 0.22);
+
+  /* 扁平件（盘子、蛋糕层）压低机位，才看得到侧壁的渐变，而不是一片白顶面 */
+  _box.getSize(_sizeV);
+  if (_sizeV.y < Math.min(_sizeV.x, _sizeV.z) * 0.62) orbit.tPhi = 1.36;
+
+  orbit.tTarget.copy(sph.center);
+  orbit.tRadius = focusFitRadius(p.glowR);
+  focusCamUntil = performance.now() + 1150;
+
+  orbit.autoRotate = false;
+  btnSpin.classList.remove('on');
+  orbit.lastInput = performance.now();
+
+  veilEl.classList.add('on');
+  showDetail(p);
+  explodeUI.classList.add('frozen');
+  refreshUI();
+}
+
+function endFocus(opt){
+  const had = !!focusPart;
+  focusPart = null;
+  parts.forEach(q => setPart(q, false));
+  veilEl.classList.remove('on');
+  showDetail(null);
+  explodeUI.classList.remove('frozen');
+  glowP = 0;
+  glowSprite.visible = false;
+  orbit.autoRotate = spinBefore;
+  btnSpin.classList.toggle('on', orbit.autoRotate);
+  if (!opt || opt.camera !== false){
+    if (had){
+      orbit.tTarget.set(0, 1.34, 0);
+      orbit.tRadius = fitRadius();
+    }
+  }
+  refreshUI();
+}
+
+function pickAt(x, y){
+  const p = pickPart(x, y);
+  if (!p){ if (focusPart) endFocus(); return; }
+  toggleFocus(p);
+}
+
+/* ============================================================
+   7. UI
+   ============================================================ */
+const labelLayer = document.getElementById('labels');
+const leadersSvg = document.getElementById('leaders');
+const SVGNS = 'http://www.w3.org/2000/svg';
+
+listedParts.forEach((p, i) => {
+  const el = document.createElement('div');
+  el.className = 'lbl';
+  el.innerHTML = '<i></i><span>' + p.name + '</span>';
+  labelLayer.appendChild(el);
+  p.el = el;
+  p.lw = el.offsetWidth || 62;
+  p.lh = el.offsetHeight || 24;
+  p.side = i % 2 === 0 ? -1 : 1;       // 一左一右，按序号固定，不随相机转动改变
+
+  /* 每个部件配一条引线 + 一个锚点圆点 */
+  const path = document.createElementNS(SVGNS, 'path');
+  path.setAttribute('d', 'M0 0');
+  path.style.opacity = '0';
+  const dot = document.createElementNS(SVGNS, 'circle');
+  dot.setAttribute('r', '2.6');
+  dot.style.opacity = '0';
+  leadersSvg.appendChild(path);
+  leadersSvg.appendChild(dot);
+  p.leadPath = path;
+  p.leadDot = dot;
+});
+
+const listEl = document.getElementById('partList');
+listedParts.forEach((p, i) => {
+  const li = document.createElement('li');
+  li.title = p.name + ' · ' + p.desc;
+  li.innerHTML = '<span class="no">' + String(i + 1).padStart(2, '0') + '</span>' +
+                 '<span class="tx"><span class="nm">' + p.name + '</span>' +
+                 '<span class="ds">' + p.desc + '</span></span>';
+  li.addEventListener('click', () => {
+    toggleFocus(p);
+    if (window.matchMedia('(max-width:860px)').matches) {
+      document.getElementById('parts').classList.remove('open');
+    }
+  });
+  listEl.appendChild(li);
+  p.li = li;
+});
+
+/* ---- 连续拆解进度 --------------------------------------------------
+   一个 0→1 的值同时驱动 9 个部件的位移、标签显隐和相机退让。
+   点按钮 = 缓动到目标；拖滑杆 = 直接跟手。单件聚焦时这个值原地冻结，
+   退出聚焦再接着用，所以聚焦前后的画面不会跳。
+------------------------------------------------------------------- */
+let explodeP = 0, explodeT = 0, explodeDrag = false;
+const EX_LABEL = 0.55;                       // 拆过这个比例，名字和引线才浮出来
+
+const exRange = document.getElementById('exRange');
+const exVal = document.getElementById('exVal');
+const explodeUI = document.getElementById('explodeUI');
+
+/* 相机随进度退让：拆得越开，机位越高越远，别让月亮顶出画面 */
+function followExplodeCamera(v){
+  if (userZoomed) return;                    // 用户自己缩放过，就别抢镜头
+  const r0 = fitRadius();
+  const spread = window.innerWidth < 820 ? 2.30 : 1.74;
+  orbit.tRadius = r0 + (r0 * spread - r0) * v;
+  orbit.tTarget.y = 1.34 + 1.0 * v;
+}
+
+function syncExplodeUI(){
+  const pct = Math.round(explodeP * 100);
+  if (exVal) exVal.textContent = pct + '%';
+  if (exRange){
+    if (document.activeElement !== exRange) exRange.value = (explodeP * 100).toFixed(1);
+    exRange.style.setProperty('--p', pct);
+  }
+  if (explodeUI) explodeUI.classList.toggle('on', explodeP > 0.004);
+  if (!focusPart){
+    const on = explodeP > EX_LABEL;
+    listedParts.forEach(p => { if (p.on !== on) setPart(p, on); });
+  }
+}
+
+function setExplode(v, opt){
+  v = clamp(v, 0, 1);
+  opt = opt || {};
+  if (focusPart) endFocus({ camera: false });
+  explodeT = v;
+  if (opt.instant || opt.manual) explodeP = v;
+  explodeDrag = !!opt.manual;
+  syncExplodeUI();
+  if (opt.camera) followExplodeCamera(v);
+  if (opt.manual !== true) refreshUI();
+}
+
+const btnAll = document.getElementById('btnAll');
+const btnReset = document.getElementById('btnReset');
+const btnSpin = document.getElementById('btnSpin');
+const btnParts = document.getElementById('btnParts');
+const partsPanel = document.getElementById('parts');
+
+const hintTipEl = document.getElementById('hintTip');
+const IDLE_TIP = '共 ' + listedParts.length + ' 个部件 · 点空白处退出聚焦';
+
+function setPart(p, on){
+  if (!p.listed) on = false;      // 底座不参与拆解
+  p.on = on;
+  if (p.li) p.li.classList.toggle('on', on);
+}
+
+function refreshUI(){
+  btnAll.textContent = (!focusPart && explodeP > 0.5) ? '收起全部' : '拆解全部';
+  if (!hintTipEl) return;
+  if (focusPart) hintTipEl.textContent = focusPart.name + ' · ' + focusPart.desc;
+  else if (explodeP < 0.02) hintTipEl.textContent = IDLE_TIP;
+  else if (explodeP > 0.98) hintTipEl.textContent = '全部拆开 · 拖滑杆可以停在任意中间状态';
+  else hintTipEl.textContent = '已拆开 ' + Math.round(explodeP * 100) + '%';
+}
+
+function showDetail(p){
+  if (!p){
+    detailEl.classList.add('idle');
+    detailEl.innerHTML = '<p class="d-desc">点击任意部件，单独取出并放大查看</p>';
+    return;
+  }
+  detailEl.classList.remove('idle');
+  detailEl.innerHTML =
+    '<h3 class="d-name">' + p.name + '</h3>' +
+    '<p class="d-desc">' + p.desc + '</p>' +
+    (p.note ? '<p class="d-note">' + p.note + '</p>' : '') +
+    (p.tech ? '<div class="d-tech">' + p.tech + '</div>' : '');
+}
+
+btnAll.addEventListener('click', () => {
+  const open = explodeP < 0.5;
+  setExplode(open ? 1 : 0);
+  if (open){
+    /* 窄屏两侧要给名字留出位置，得比宽屏再退一档 */
+    const spread = window.innerWidth < 820 ? 2.30 : 1.74;
+    orbit.tTarget.set(0, 2.34, 0);
+    orbit.tRadius = Math.max(fitRadius() * spread, orbit.radius);
+  } else {
+    orbit.tTarget.set(0, 1.34, 0);
+    orbit.tRadius = fitRadius();
+  }
+});
+
+/* 拖滑杆：直接跟手，不走缓动；松手时才校准 UI 文案 */
+exRange.addEventListener('input', () => {
+  setExplode(parseFloat(exRange.value) / 100, { manual: true, camera: true });
+  if (hintTipEl){
+    hintTipEl.textContent = explodeP < 0.02 ? IDLE_TIP
+                         : '已拆开 ' + Math.round(explodeP * 100) + '%';
+  }
+});
+exRange.addEventListener('change', () => {
+  explodeDrag = false;
+  refreshUI();
+});
+
+btnReset.addEventListener('click', () => {
+  focusPart = null;
+  setExplode(0);
+  veilEl.classList.remove('on');
+  showDetail(null);
+  explodeUI.classList.remove('frozen');
+  glowP = 0; glowSprite.visible = false;
+  orbit.tTheta = 0.72; orbit.tPhi = 1.12;
+  orbit.tRadius = fitRadius();
+  orbit.tTarget.set(0, 1.34, 0);
+  userZoomed = false;
+  orbit.autoRotate = true; spinBefore = true;
+  btnSpin.classList.add('on');
+  partsPanel.classList.remove('open');
+  refreshUI();
+});
+
+btnSpin.addEventListener('click', () => {
+  orbit.autoRotate = !orbit.autoRotate;
+  spinBefore = orbit.autoRotate;
+  btnSpin.classList.toggle('on', orbit.autoRotate);
+  orbit.lastInput = performance.now();
+});
+
+btnParts.addEventListener('click', () => partsPanel.classList.toggle('open'));
+
+refreshUI();
+syncExplodeUI();
+
+/* ---- 标签与引线 --------------------------------------------------
+   位置完全由"序号"决定：奇偶决定左右列，列内按拆开后的世界高度排队，
+   相机怎么转都不会让名字换边、换行；跟着动的只有圆点和线。
+   圆点放在部件包围球之外，线只穿过空白区，不会压在身上。
+------------------------------------------------------------------ */
+const vTmp = new THREE.Vector3();
+const _cV = new THREE.Vector3();
+
+/* 包围球（自身坐标系）算一次：把圆点推到轮廓外要用的半径 */
+(function measureParts(){
+  const box = new THREE.Box3(), sph = new THREE.Sphere(), sz = new THREE.Vector3();
+  listedParts.forEach(p => {
+    p.root.updateWorldMatrix(true, true);
+    box.setFromObject(p.root);
+    if (box.isEmpty()){
+      p.cOff = new THREE.Vector3(0, 0, 0);
+      p.half = 0.5;
+    } else {
+      box.getBoundingSphere(sph);
+      box.getSize(sz);
+      p.cOff = sph.center.clone().sub(p.root.position);
+      /* 水平半宽：圆点沿水平方向推到轮廓外，比用包围球半径稳 */
+      p.half = Math.max(sz.x, sz.z) * 0.5;
+    }
+    /* 拆开后的视觉高度（与相机无关），列内按它排队，线才不会打结 */
+    p.rowKey = p.home.y + p.cOff.y + p.off.y;
+  });
+
+  /* 错峰相位：拆解顺序按"拆开后的高度"排，顶上的月亮先走，底层最后下沉，
+     像真的在一层层拆，而不是九个零件同时弹开 */
+  const keys = listedParts.map(p => p.rowKey);
+  const lo = Math.min(...keys), hi = Math.max(...keys);
+  const span = Math.max(hi - lo, 1e-3);
+  listedParts.forEach(p => {
+    p.delay = (1 - (p.rowKey - lo) / span) * 0.15;
+  });
+})();
+
+function hideLabel(p){
+  p.el.style.opacity = 0;
+  p.leadPath.style.opacity = 0;
+  p.leadDot.style.opacity = 0;
+}
+
+let labW = -1, labH = -1;
+
+/* 左右两列的行位：只跟窗口尺寸和部件序号有关，跟相机无关 */
+function layoutLabels(w, h){
+  const wide = w >= 860;
+  const padL = wide ? 46 : Math.min(26, w * 0.05);
+  const padR = wide ? 300 : Math.min(26, w * 0.05);   // 宽屏给右侧清单让位
+
+  for (const side of [-1, 1]){
+    /* 世界坐标越高，屏幕上越靠上 */
+    const arr = listedParts.filter(p => p.side === side)
+                           .sort((a, b) => b.rowKey - a.rowKey);
+    const n = arr.length;
+    const gap = n > 1 ? Math.min((h - 250) / (n - 1), 86) : 80;
+    const total = gap * Math.max(n - 1, 0);
+    let top = h * 0.47 - total * 0.5;
+    top = Math.max(top, 84);
+    arr.forEach((p, k) => {
+      p.slotY = clamp(top + k * gap, p.lh * 0.5 + 14, h - p.lh * 0.5 - 14);
+      p.slotX = clamp(side < 0 ? padL + p.lw * 0.5 : w - padR - p.lw * 0.5,
+                      p.lw * 0.5 + 8, w - p.lw * 0.5 - 8);
+    });
+  }
+}
+
+function updateLabels(){
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (w !== labW || h !== labH){ labW = w; labH = h; layoutLabels(w, h); }
+
+  const pxPerUnit = (h * 0.5) / Math.tan(camera.fov * Math.PI / 360);
+
+  for (const p of listedParts){
+    /* 拆到 EX_LABEL 之后名字才浮出来：中间态零件还在半空，引线会互相打架 */
+    if (focusPart || p.p < EX_LABEL){ hideLabel(p); continue; }
+
+    _cV.copy(p.root.position).add(p.cOff);
+    const dist = camera.position.distanceTo(_cV) || 1;
+    vTmp.copy(_cV).project(camera);
+    if (vTmp.z > 1){ hideLabel(p); continue; }
+
+    const ax = (vTmp.x * 0.5 + 0.5) * w;
+    const ay = (-vTmp.y * 0.5 + 0.5) * h;
+
+    /* 圆点：贴着部件轮廓外缘、朝着自己那列的方向，横向推出去。
+       但最多推到"部件与标签的中点"，否则大圆盘会把点一路顶到标签边上，
+       引线被压成一小截，看起来像点自己长了个名字 */
+    const halfPx = p.half * pxPerUnit / dist;
+    const ex0 = p.slotX + (p.side < 0 ? 1 : -1) * (p.lw * 0.5 + 4);
+    const push = Math.min(halfPx * 0.94 + 12,
+                          Math.max(22, Math.abs(ex0 - ax) * 0.55));
+    let dx = ax + p.side * push;
+    if (p.side < 0) dx = Math.max(dx, ex0 + 34);
+    else dx = Math.min(dx, ex0 - 34);
+    const dy = ay;
+
+    const ex = ex0;
+
+    const op = clamp((p.p - EX_LABEL) / 0.12, 0, 1) * 0.96;
+    p.el.style.transform = 'translate(-50%,-50%) translate(' +
+      p.slotX.toFixed(1) + 'px,' + p.slotY.toFixed(1) + 'px)';
+    p.el.style.opacity = op;
+
+    p.leadPath.setAttribute('d', 'M' + dx.toFixed(1) + ' ' + dy.toFixed(1) +
+                                 'L' + ex.toFixed(1) + ' ' + p.slotY.toFixed(1));
+    p.leadPath.style.opacity = op * 0.85;
+    p.leadDot.setAttribute('cx', dx.toFixed(1));
+    p.leadDot.setAttribute('cy', dy.toFixed(1));
+    p.leadDot.style.opacity = op * 0.9;
+  }
+}
+
+/* ============================================================
+   8. 主循环
+   ============================================================ */
+let last = performance.now();
+let introP = 0;
+let frameCount = 0;
+
+/* 把 dim / 焦点强度落到材质：透明度、自发光、环境反射 */
+function applyLook(p){
+  const d = p.dim, f = p.appF;
+  /* 多层几何叠加会累积 alpha，所以直接淡到 0 再整组隐藏 */
+  const op = clamp(1 - d * 1.18, 0, 1);
+  const tr = op < 0.995;
+  for (const m of p.mats){
+    if (m.transparent !== tr) m.transparent = tr;
+    m.opacity = op;
+    if (m.emissive && m.userData.baseEmissive !== undefined){
+      /* 夜里要点亮的东西（星、月牙）在聚焦时不再盖粉光，否则整块变成粉的 */
+      if (f > 0.002 && !(m.userData.nightEI && night.p > 0.4)){
+        /* 注意：基线 emissiveIntensity 是 1（配黑色自发光等于无效），
+           这里必须用绝对值，否则等于给整件灌满全强度粉光 */
+        m.emissive.setHex(0xffa9c7);
+        m.emissiveIntensity = 0.11 * f;
+      } else {
+        m.emissive.setHex(m.userData.baseEmissive);
+        m.emissiveIntensity = m.userData.baseEI || 0;
+      }
+    }
+    if (m.userData.baseEnv !== undefined){
+      m.envMapIntensity = m.userData.baseEnv * (1 - 0.50 * d) * (1 + 0.12 * f);
+    }
+  }
+  /* 虚化的部件退到背景下，就不要再往焦点上打影子了 */
+  for (const o of p.meshes){
+    const want = d > 0.35 ? false : !!o.userData.baseCast;
+    if (o.castShadow !== want) o.castShadow = want;
+  }
+  const vis = op > 0.004;
+  if (p.root.visible !== vis) p.root.visible = vis;
+}
+
+const _kidQ = new THREE.Quaternion();
+const _spinQ = new THREE.Quaternion();
+const _AXIS_X = new THREE.Vector3(1, 0, 0);
+let exShown = -1;
+
+function updateParts(dt, t){
+  /* 一条进度驱动全场：拖滑杆时逐帧跟手，点按钮时缓动过去。
+     除了它，没有任何"第几个部件该动"的独立状态。 */
+  if (!explodeDrag){
+    explodeP += (explodeT - explodeP) * (1 - Math.exp(-dt * 6.5));
+    if (Math.abs(explodeT - explodeP) < 0.0006) explodeP = explodeT;
+  }
+  const shown = Math.round(explodeP * 100);
+  if (shown !== exShown){ exShown = shown; syncExplodeUI(); }
+
+  for (const p of parts){
+    /* 目标只有一个：底座不动；聚焦时焦点件单独走到 1，其余停在当前进度；
+       平时全体共用拆解进度 */
+    const target = !p.listed ? 0
+                 : focusPart ? (focusPart === p ? 1 : explodeP)
+                 : explodeP;
+
+    if (explodeDrag && !focusPart) p.p = target;
+    else {
+      p.p += (target - p.p) * (1 - Math.exp(-dt * 6.5));
+      if (Math.abs(target - p.p) < 0.0005) p.p = target;
+    }
+
+    /* 错峰：每个部件从 delay 之后才开始动，但终点都是 1 —— 拆的时候顶上的
+       月亮先走、底层最后下沉，合的时候顺序自动反过来 */
+    const e = clamp((p.p - p.delay) / (1 - p.delay), 0, 1);
+
+    p.root.position.copy(p.home).addScaledVector(p.off, e);
+    if (e > 0.001) p.root.position.y += Math.sin(t * 1.15 + p.phase) * 0.045 * e;
+
+    /* 大件只允许绕自己的中轴转，不跟着位移侧翻 */
+    if (p.spinAxis){
+      _spinQ.setFromAxisAngle(p.spinAxis, e * p.spinAmt);
+      p.root.quaternion.copy(_spinQ).multiply(p.homeQ);
+    }
+    for (const k of p.kids){
+      k.o.position.copy(k.home).addScaledVector(k.dir, e * k.amt);
+      if (k.rise) k.o.position.y += k.rise * e;
+      if (k.tilt){
+        _kidQ.setFromAxisAngle(_AXIS_X, k.tilt * e);
+        k.o.quaternion.copy(k.homeQ).multiply(_kidQ);
+      }
+    }
+
+    /* 其余部件：退后一点 + 淡出，做成"虚化"的观感 */
+    const dTarget = (focusPart && focusPart !== p) ? 1 : 0;
+    p.dim += (dTarget - p.dim) * (1 - Math.exp(-dt * 7.0));
+    if (Math.abs(dTarget - p.dim) < 0.002) p.dim = dTarget;
+
+    const isFocus = focusPart === p;
+    const f = isFocus ? e : (p.appF > 0 ? p.appF * Math.exp(-dt * 8) : 0);
+
+    if (p.dim > 0.001 || f > 0.001){
+      p.root.scale.copy(p.homeScale).multiplyScalar(1 - 0.09 * p.dim + 0.17 * f);
+    } else if (Math.abs(p.root.scale.x - p.homeScale.x) > 1e-4){
+      p.root.scale.copy(p.homeScale);
+    }
+
+    if (Math.abs(p.dim - p.appDim) > 0.004 || Math.abs(f - p.appF) > 0.004){
+      p.appDim = p.dim; p.appF = f;
+      applyLook(p);
+    }
+  }
+}
+
+const _dirV = new THREE.Vector3();
+function updateFocus(dt, t, now){
+  if (focusPart){
+    glowAnchor.copy(focusPart.root.position).add(focusPart.glowOff);
+    orbit.tTarget.copy(glowAnchor);
+    if (now < focusCamUntil) orbit.tRadius = focusFitRadius(focusPart.glowR);
+    glowP += (1 - glowP) * (1 - Math.exp(-dt * 5.0));
+    /* 微收一档曝光，给高光留出层次，主体和背景也拉开了 */
+    renderer.toneMappingExposure = 0.84 - 0.06 * glowP;
+    glowSprite.visible = true;
+    /* 把光环推到部件中心之后（远离相机），让它只从轮廓外缘漏出来 */
+    _dirV.copy(glowAnchor).sub(camera.position).normalize();
+    glowSprite.position.copy(glowAnchor).addScaledVector(_dirV, focusPart.glowR * 0.62);
+    /* 光晕直径再按屏幕尺寸封顶，避免大件把整屏糊上一层 */
+    const dist = camera.position.distanceTo(glowAnchor) || 1;
+    const maxGs = Math.tan(camera.fov * Math.PI / 360) * dist * 1.55;
+    const gs = Math.min(focusPart.glowR * 1.30, maxGs) * (1 + 0.03 * Math.sin(t * 1.6));
+    glowSprite.scale.set(gs, gs, 1);
+    glowSprite.material.opacity = glowP;
+
+    /* 补光：与主光同向的左上方一束，给单独取出的部件补形体（不从镜头正面打，避免拍平） */
+    focusLampP += (1 - focusLampP) * (1 - Math.exp(-dt * 4.2));
+    focusLight.intensity = 0.30 * focusLampP;
+    focusLight.position.copy(glowAnchor).add(_dirV.set(-3.2, 5.4, 4.2));
+    focusLight.target.position.copy(glowAnchor);
+    focusLight.target.updateMatrixWorld();
+  } else if (glowP > 0.002){
+    glowP *= Math.exp(-dt * 6.5);
+    glowSprite.material.opacity = glowP;
+    glowSprite.position.copy(glowAnchor);
+    if (glowP <= 0.002){ glowP = 0; glowSprite.visible = false; }
+    focusLampP *= Math.exp(-dt * 5.5);
+    focusLight.intensity = 0.30 * focusLampP;
+    renderer.toneMappingExposure = 0.84 - 0.06 * glowP;
+  }
+}
+
+/* ============================================================
+   7.5 关灯模式：棚灯全灭，星星与月亮自己亮起来
+   ============================================================ */
+const night = { on: false, p: 0, was: 0 };
+const BASE_LIGHT = {
+  key: key.intensity, rim: rim.intensity, fill: fill.intensity,
+  bounce: bounce.intensity, hemi: hemi.intensity
+};
+
+/* 冷月光补光：只是让暗部别糊成一片黑，不能照回"白天" */
+const nightFill = new THREE.DirectionalLight(0x93a9de, 0);
+nightFill.position.set(-5.2, 3.6, -4.2);
+scene.add(nightFill);
+
+/* 暖色光晕贴图 */
+const warmGlowTex = (function(){
+  const S = 256, cv = makeCanvas(S, S), g = cv.getContext('2d');
+  const rg = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+  rg.addColorStop(0.00, 'rgba(255,236,182,0.90)');
+  rg.addColorStop(0.16, 'rgba(255,206,110,0.48)');
+  rg.addColorStop(0.40, 'rgba(250,180,70,0.16)');
+  rg.addColorStop(1.00, 'rgba(244,168,58,0)');
+  g.fillStyle = rg; g.fillRect(0, 0, S, S);
+  const t = new THREE.CanvasTexture(cv);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+})();
+
+const nightHaloes = [];
+function addHalo(parent, size, y, op){
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: warmGlowTex, transparent: true, depthWrite: false,
+    blending: THREE.AdditiveBlending, opacity: 0, toneMapped: false
+  }));
+  sp.position.set(0, y, 0);
+  sp.scale.set(size, size, 1);
+  sp.renderOrder = 15;
+  sp.visible = false;
+  parent.add(sp);
+  nightHaloes.push({ sp, op, ph: rr(0, 6.28) });
+  return sp;
+}
+
+/* 月牙本身一层薄的暖光，别做太大，否则整块糊成白雾 */
+addHalo(partMoon.root, 1.55, 0.06, 0.34);
+
+/* 光源挂在那颗最大的金星上（月牙上端尖角那颗），拆解/自转时跟着走 */
+const moonStar = partMoon.root.userData.topStar || partMoon.root;
+const moonLight = new THREE.PointLight(0xffbe48, 0, 14, 1.9);
+moonLight.position.set(0, 0, 0.03);
+moonStar.add(moonLight);
+/* 大星外面再罩一圈黄色星芒，让"光源"这件事看得出来 */
+addHalo(moonStar, 0.95, 0, 0.42);
+
+const starLights = [];
+const starKids = partStars.root.children.filter(o => o.isMesh);
+starKids.forEach((mesh, i) => {
+  const big = i % 3 === 0;
+  addHalo(mesh, big ? 0.50 : 0.32, 0, big ? 0.40 : 0.26);
+  if (i === 0 || i === 4){
+    const pl = new THREE.PointLight(0xffb936, 0, 6.0, 2.0);
+    pl.position.set(0, 0, 0);
+    mesh.add(pl);
+    starLights.push({ pl, k: i === 0 ? 0.78 : 0.55 });
+  }
+});
+
+/* 月牙本身的材质要压得住：只让它自己亮，不把周围蛋糕一起提亮 */
+const nightGlowMats = [];
+parts.forEach(p => p.mats.forEach(m => {
+  if (m.userData.nightEI) nightGlowMats.push(m);
+}));
+
+/* 白瓷盘在暗场里会白得抢眼，压一档让它退回剪影 */
+const C_PLATE_NIGHT = new THREE.Color(0x6a5f64);
+const plateMats = partPlate.mats.filter(m => m.userData.baseColor !== undefined);
+
+const nightSkyEl = document.getElementById('nightSky');
+const btnNight = document.getElementById('btnNight');
+const btnNightText = document.getElementById('btnNightText');
+
+function updateNight(dt, t){
+  const tgt = night.on ? 1 : 0;
+  night.p += (tgt - night.p) * (1 - Math.exp(-dt * 2.6));
+  if (Math.abs(tgt - night.p) < 0.0012) night.p = tgt;
+  const d = night.p;
+
+  key.intensity    = BASE_LIGHT.key    * (1 - 0.958 * d);
+  rim.intensity    = BASE_LIGHT.rim    * (1 - 0.86 * d);
+  fill.intensity   = BASE_LIGHT.fill   * (1 - 0.78 * d);
+  bounce.intensity = BASE_LIGHT.bounce * (1 - 0.90 * d);
+  hemi.intensity   = BASE_LIGHT.hemi   * (1 - 0.62 * d) + 0.016 * d;
+  nightFill.intensity = 0.13 * d;
+  if ('environmentIntensity' in scene) scene.environmentIntensity = 1 - 0.86 * d;
+  contactM.material.opacity = 0.66 * (1 - 0.66 * d);
+
+  moonLight.intensity = 2.15 * d;
+  for (const s of starLights) s.pl.intensity = 0.62 * s.k * d;
+
+  for (const h of nightHaloes){
+    const vis = d > 0.004;
+    if (h.sp.visible !== vis) h.sp.visible = vis;
+    if (vis) h.sp.material.opacity = h.op * d * (1 + 0.08 * Math.sin(t * 1.7 + h.ph));
+  }
+
+  if (d > 0.0015 || night.was > 0.0015){
+    for (const m of nightGlowMats){
+      m.emissiveIntensity = d > 0.0015 ? m.userData.nightEI * d : (m.userData.baseEI || 0);
+    }
+    for (const m of plateMats){
+      m.color.setHex(m.userData.baseColor).lerp(C_PLATE_NIGHT, 0.62 * d);
+    }
+  }
+  night.was = d;
+}
+
+btnNight.addEventListener('click', () => {
+  night.on = !night.on;
+  btnNight.classList.toggle('on', night.on);
+  btnNightText.textContent = night.on ? '开灯' : '关灯';
+  document.body.classList.toggle('night', night.on);
+  nightSkyEl.classList.toggle('on', night.on);
+  orbit.lastInput = performance.now();
+});
+
+function tick(){
+  requestAnimationFrame(tick);
+  frameCount++;
+  const now = performance.now();
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  const t = now * 0.001;
+
+  updateGift(dt, t);
+  updateConfetti(dt);
+
+  /* 蛋糕要等礼盒炸开才长出来 —— 先开盒，再有蛋糕 */
+  if (introP < 1 && gift.cakeIn){
+    introP = Math.min(1, introP + dt / 1.15);
+    const c1 = 1.70158, c3 = c1 + 1, x = introP - 1;
+    const s = 1 + c3 * x * x * x + c1 * x * x;
+    cakeRoot.scale.setScalar(Math.max(0.002, s * 0.999 + 0.001));
+    const endR = fitRadius();
+    orbit.tRadius = endR * 1.45 + (endR - endR * 1.45) * s;
+  }
+
+  updateParts(dt, t);
+  updateFocus(dt, t, now);
+  updateNight(dt, t);
+  updateCamera(dt);
+  updateLake(t);
+  updateLabels();
+  renderer.render(scene, camera);
+}
+
+/* ---- 尺寸 ---- */
+function resize(){
+  const w = window.innerWidth, h = window.innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.fov = w / h < 0.85 ? 58 : 38;
+  camera.updateProjectionMatrix();
+  if (!userZoomed){
+    const r = fitRadius();
+    orbit.tRadius = r;
+    if (introP >= 1) orbit.radius = r;
+    /* 礼盒还在的时候按盒子取景：盒子比蛋糕矮但更宽，用 fitRadius 会偏紧 */
+    if (!gift.done && !gift.cakeIn){
+      const gr = giftRadius();
+      orbit.tRadius = gr; orbit.radius = gr;
+      orbit.target.y = orbit.tTarget.y = gift.centerY;
+    }
+    /* 已经拆开时按进度重算取景，否则改窗口大小会把构图打回未拆的默认值 */
+    if (explodeP > 0.001){
+      followExplodeCamera(explodeP);
+      orbit.radius = orbit.tRadius;
+      orbit.target.copy(orbit.tTarget);
+    }
+  }
+}
+window.addEventListener('resize', resize);
+
+/* 可选的机位参数（分享时能固定一个好看的视角）：?r=6.2&phi=1.15&theta=0.9&y=0.55&still=1
+   ?p=0.5 直接停在某个拆解进度，便于截图和分享固定画面 */
+(function viewFromURL(){
+  const q = new URLSearchParams(location.search);
+  const num = k => (q.has(k) && !isNaN(parseFloat(q.get(k))) ? parseFloat(q.get(k)) : null);
+  const r = num('r'), ph = num('phi'), th = num('theta'), yy = num('y');
+  if (r !== null){ orbit.radius = orbit.tRadius = r; }
+  if (ph !== null){ orbit.phi = orbit.tPhi = ph; }
+  if (th !== null){ orbit.theta = orbit.tTheta = th; }
+  if (yy !== null){ orbit.target.y = orbit.tTarget.y = yy; }
+  if (r !== null || ph !== null || th !== null || yy !== null) userZoomed = true;
+  if (q.has('still')){
+    introP = 1;
+    /* 静态/截图模式：标签不要再淡入，直接给终值，否则抓到的是一帧半透明的字 */
+    document.body.classList.add('still');
+  }
+
+  const pv = num('p');
+  if (pv !== null){
+    explodeP = explodeT = clamp(pv, 0, 1);
+    /* 直接落到终值，不靠主循环的第一帧缓动 —— 否则静态截图会停在刚起步的位置 */
+    parts.forEach(q => { q.p = q.listed ? explodeP : 0; });
+    syncExplodeUI();
+  }
+
+  /* 带机位/进度/关灯参数的链接是"看成品"的，别再让人先拆一遍盒子 */
+  const skipGift = q.has('still') || q.has('p') || q.has('explode') || q.has('night') || q.has('focus');
+  if (skipGift){
+    gift.done = true;
+    gift.cakeIn = true;
+    gift.root.visible = false;
+    if (giftHintEl) giftHintEl.style.display = 'none';
+    document.body.classList.remove('gift');
+    introP = 1;
+  }
+
+  /* ?taps=2 模拟已经点过两下（盖子顶起来、缝里透光的状态），截图检查用 */
+  const tv = num('taps');
+  if (tv !== null && !skipGift && !gift.bursting){
+    gift.taps = Math.min(gift.need - 1, Math.max(0, Math.round(tv)));
+    gift.lift = gift.need ? gift.taps / gift.need : 0;
+    gift.pop = 0; gift.shake = 0;
+    paintGiftDots(false);
+    if (gift.taps > 0) giftHintTxt.textContent = gift.taps >= gift.need ? '' : '快了…';
+  }
+
+  /* ?gift=0.4 把爆开动画冻结在某一帧，截图和调动画用 */
+  const gv = num('gift');
+  if (gv !== null && !skipGift){
+    gift.bursting = true;
+    gift.frozen = true;
+    gift.burstT = clamp(gv, 0, 1);
+    gift.cakeIn = gift.burstT > 0.03;
+    gift.lift = 1;
+    if (gift.burstT > 0.16){
+      gift.fadeOn = true;
+      gift.mats.forEach(m => { m.transparent = true; m.needsUpdate = true; });
+    }
+    giftHintEl.style.display = 'none';
+    if (gift.cakeIn) introP = 1;
+    if (gift.burstT > 0.02) spawnConfetti();
+    if (gift.burstT > 0.34) showWish();
+    document.body.classList.add('still');      // 冻结点上别让 CSS 还在淡入
+  }
+
+  /* ?focus=moon 直接聚焦某个部件（分享某一件、或者截图用） */
+  const fv = q.get('focus');
+  if (fv){
+    const target = listedParts.find(x => x.id === fv);
+    if (target) setTimeout(() => { if (!focusPart) toggleFocus(target); }, 350);
+  }
+})();
+
+paintGiftDots(false);
+/* 盒子还没开的时候，蛋糕得是真的"不在"—— 否则盒盖一抬就看见一个已经成型的蛋糕 */
+cakeRoot.scale.setScalar(gift.cakeIn ? 1 : 0.002);
+resize();
+tick();
+
+/* ---- 收尾 ---- */
+requestAnimationFrame(() => {
+  const l = document.getElementById('loader');
+  l.classList.add('hide');
+  setTimeout(() => l.remove(), 700);
+});
+setTimeout(() => {
+  const tip = document.getElementById('hintTip');
+  if (tip) tip.style.opacity = '0.45';
+}, 7000);
+
+/* 演示用：地址里带 ?explode 打开即自动拆解；带 ?night 直接关灯 */
+if (location.search.indexOf('explode') >= 0){
+  setTimeout(() => document.getElementById('btnAll').click(), 1500);
+}
+if (location.search.indexOf('night') >= 0){
+  setTimeout(() => {
+    document.getElementById('btnNight').click();
+    /* 分享/截图链接里直接到全暗，别让人先看到一帧亮着的棚拍 */
+    night.p = 1;
+  }, 300);
+}
+
+/* 调试钩子：?debug 时把内部状态挂到 window，方便调参与检查 */
+if (location.search.indexOf('debug') >= 0){
+  window.__cake = { parts, listedParts, night, orbit, toggleFocus, endFocus, pickPart, pickAt, camera, fitRadius, glowSprite, scene, renderer, focusLight, key, hemi, moonLight, setExplode, gift, tapGift, burstGift, finishGift, frames: () => frameCount, prog: () => explodeP };
+  window.__cake.settle = (v) => {
+    if (typeof v === 'number'){ explodeP = explodeT = clamp(v, 0, 1); syncExplodeUI(); }
+    else explodeP = explodeT;
+    parts.forEach(p => {
+      p.p = !p.listed ? 0 : (focusPart ? (focusPart === p ? 1 : explodeP) : explodeP);
+      p.dim = (focusPart && focusPart !== p) ? 1 : 0;
+      p.appF = (focusPart === p) ? 1 : 0;
+      p.appDim = -1;
+      applyLook(p);
+    });
+    if (!focusPart){
+      const spread = window.innerWidth < 820 ? 2.30 : 1.74;
+      const r0 = fitRadius();
+      orbit.tTarget.set(0, 1.34 + explodeP, 0);
+      orbit.tRadius = r0 + (r0 * spread - r0) * explodeP;
+    }
+    orbit.theta = orbit.tTheta; orbit.phi = orbit.tPhi;
+    orbit.radius = orbit.tRadius; orbit.target.copy(orbit.tTarget);
+    glowP = focusPart ? 1 : 0;
+    focusLampP = focusPart ? 1 : 0;
+    if (focusPart) glowAnchor.copy(focusPart.root.position).add(focusPart.glowOff);
+
+    /* 无头浏览器的 rAF 只有 1 帧/秒，光改数据截出来还是旧画面：
+       这里手动推进一帧并把位移、标签、渲染一次做完 */
+    const nowT = performance.now() * 0.001;
+    updateParts(1 / 60, nowT);
+    updateFocus(1 / 60, nowT, performance.now());
+    updateNight(1 / 60, nowT);
+    updateCamera(1 / 60);
+    updateLabels();
+    renderer.render(scene, camera);
+  };
+  window.__focus = id => {
+    const p = parts.find(q => q.id === id);
+    if (p) toggleFocus(p);
+    return !!p;
+  };
+}
+</script>
+</body>
+</html>
