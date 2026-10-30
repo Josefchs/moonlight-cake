@@ -1663,10 +1663,11 @@ const gift = {
   const topY  = Math.max(2.2, bb.max.y);
   const W = halfX * 2 + 0.66;
   const D = halfZ * 2 + 0.66;
-  const H = topY + 0.18;
+  /* 真实蛋糕盒大约 1.6:1，只按蛋糕高度算会得到一个扁箱子，所以给个下限 */
+  const H = Math.max(topY + 0.18, W * 0.6);
   const capH = 0.36;
   gift.W = W; gift.D = D; gift.H = H; gift.capH = capH;
-  gift.centerY = H * 0.56;
+  gift.centerY = H * 0.45;
 
   /* 纸盒：完全哑光的浅粉卡纸，靠一点极淡的法线给出"有纤维"的手感 */
   const matPaper = new THREE.MeshStandardMaterial({
@@ -1765,11 +1766,12 @@ const gift = {
   const loopGeo = new THREE.TorusGeometry(0.46, 0.115, 8, 24);
   [-1, 1].forEach(sx => {
     const wing = new THREE.Group();
-    wing.rotation.z = sx * 0.5;
+    wing.rotation.y = sx * 0.55;                // 在水平面里张开，俯视才是"两片叶子"
+    wing.rotation.z = sx * 0.14;                // 一点点上翘，别完全贴平
     const m = new THREE.Mesh(loopGeo, matRibCap);
-    m.rotation.x = -Math.PI / 2 + 0.42;
-    m.scale.set(1.14, 0.58, 1);
-    m.position.x = sx * 0.44;
+    m.rotation.x = -Math.PI / 2 + 0.3;
+    m.scale.set(1.2, 0.52, 1);
+    m.position.x = sx * 0.46;
     wing.add(m);
     bow.add(wing);
   });
@@ -1795,6 +1797,27 @@ const gift = {
   glow.position.y = H + 0.006;
   gift.root.add(glow);
   gift.glow = glow;
+
+  /* 落地阴影：盒子底面就贴着地，自身投影被自己压住了，单独补一片柔影才不像浮着 */
+  const shCv = document.createElement('canvas');
+  shCv.width = shCv.height = 256;
+  const shg = shCv.getContext('2d');
+  const shr = shg.createRadialGradient(128, 128, 6, 128, 128, 128);
+  shr.addColorStop(0, 'rgba(108,68,76,.55)');
+  shr.addColorStop(.55, 'rgba(108,68,76,.5)');
+  shr.addColorStop(.74, 'rgba(108,68,76,.2)');
+  shr.addColorStop(1, 'rgba(108,68,76,0)');
+  shg.fillStyle = shr; shg.fillRect(0, 0, 256, 256);
+  const shTex = new THREE.CanvasTexture(shCv);
+  shTex.colorSpace = THREE.SRGBColorSpace;
+  const shadow = new THREE.Mesh(
+    new THREE.PlaneGeometry(W * 1.58, D * 1.58).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({ map: shTex, transparent: true, opacity: 1, depthWrite: false })
+  );
+  shadow.position.y = 0.012;
+  shadow.renderOrder = 3;
+  gift.root.add(shadow);
+  gift.shadow = shadow;
 
   scene.add(gift.root);
 
@@ -1903,9 +1926,9 @@ function giftRadius(){
   const t = Math.tan(camera.fov * Math.PI / 360);
   const hw = Math.hypot(gift.W, gift.D) * 0.5 + 0.2;   // 水平半对角线
   const hh = Math.max(gift.H * 0.66, 2.8);             // 竖向要装下盒身
-  const rV = hh / Math.max(t * 0.80, 0.04);
-  const rH = hw / Math.max(t * aspect * 0.80, 0.04);
-  return clamp(Math.max(rV, rH) * 1.10, 8, 30);
+  const rV = hh / Math.max(t * 0.72, 0.04);
+  const rH = hw / Math.max(t * aspect * 0.72, 0.04);
+  return clamp(Math.max(rV, rH) * 1.45, 8, 36);
 }
 
 const _confDummy = new THREE.Object3D();
@@ -2005,6 +2028,7 @@ function updateGift(dt, t){
      只剩运动留下的那个印象，不让它们挡住刚长出来的蛋糕 */
   gift.capMats.forEach(m => { m.opacity = 1 - clamp((b - 0.02) / 0.18, 0, 1); });
   gift.wallMats.forEach(m => { m.opacity = 1 - clamp((b - 0.04) / 0.20, 0, 1); });
+  if (gift.shadow) gift.shadow.material.opacity = Math.max(0, 1 - b * 4);
 
   /* 蛋糕开始长出来以后，镜头往蛋糕的视点回落 */
   const back = clamp((b - 0.1) / 0.5, 0, 1);
@@ -2905,15 +2929,17 @@ function resize(){
   camera.fov = w / h < 0.85 ? 58 : 38;
   camera.updateProjectionMatrix();
   if (!userZoomed){
+    if (!gift.done){
+      /* 礼盒还没拆完（含爆开中）：取景按盒子算，别被"蛋糕那套"顶掉 */
+      const bk = gift.cakeIn ? clamp((gift.burstT - 0.1) / 0.5, 0, 1) : 0;
+      const gr = giftRadius() * (1 - 0.06 * bk);
+      orbit.tRadius = gr; orbit.radius = gr;
+      orbit.target.y = orbit.tTarget.y = gift.centerY + (1.34 - gift.centerY) * bk;
+      return;
+    }
     const r = fitRadius();
     orbit.tRadius = r;
     if (introP >= 1) orbit.radius = r;
-    /* 礼盒还在的时候按盒子取景：盒子比蛋糕矮但更宽，用 fitRadius 会偏紧 */
-    if (!gift.done && !gift.cakeIn){
-      const gr = giftRadius();
-      orbit.tRadius = gr; orbit.radius = gr;
-      orbit.target.y = orbit.tTarget.y = gift.centerY;
-    }
     /* 已经拆开时按进度重算取景，否则改窗口大小会把构图打回未拆的默认值 */
     if (explodeP > 0.001){
       followExplodeCamera(explodeP);
@@ -2987,6 +3013,10 @@ window.addEventListener('resize', resize);
     if (gift.burstT > 0.02) spawnConfetti();
     if (gift.burstT > 0.34) showWish();
     document.body.classList.add('still');      // 冻结点上别让 CSS 还在淡入
+    /* 相机直接落到该有的位置，别从默认距离慢慢蹭过来 —— 静态截图会抓到半路 */
+    const bk = clamp((gift.burstT - 0.1) / 0.5, 0, 1);
+    orbit.radius = orbit.tRadius = giftRadius() * (1 - 0.06 * bk);
+    orbit.target.y = orbit.tTarget.y = gift.centerY + (1.34 - gift.centerY) * bk;
   }
 
   /* ?focus=moon 直接聚焦某个部件（分享某一件、或者截图用） */
